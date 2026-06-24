@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSV Binary Plotter</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+<div class="app layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="section-title">Files</div>
+
+    <div class="control-group">
+      <div class="inline-controls">
+        <button id="AddFile" class="btn secondary">+</button>
+      </div>
+      <div id="fileList"></div>
+    </div>
+    
+    <div class="section-divider"></div>
+
+    <div class="section-title">Controls</div>
+
+    <table class="controls-table">
+      <tr>
+        <td>Scroll</td>
+        <td>Zoom</td>
+      </tr>
+      <tr>
+        <td>Click + Drag</td>
+        <td>Pan</td>
+      </tr>
+      <tr>
+        <td>Ctrl + Click + Drag</td>
+        <td>Zoom Box</td>
+      </tr>
+      <tr>
+        <td>Double Click</td>
+        <td>Reset View</td>
+      </tr>
+    </table>
+
+    <div class="section-divider"></div>
+
+    <div class="app-version">
+      v1.0.0
+    </div>
+
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <div class="card chart-card">
+      <div class="chart-header">
+        <div class="chart-title">CSV Data</div>
+      </div>
+
+      <div class="chart-wrapper">
+        <canvas id="chart"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
+<script src="../../node_modules/hammerjs/hammer.min.js"></script>
+<script src="../../node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
+<script src="renderer.js"></script>
+
+</body>
+</html>
