@@ -97,8 +97,6 @@ ipcMain.handle('open-csv-files', async () => {
     return [];
   }
 
-  const parse = require('csv-parse/sync');
-
   const filesData = [];
 
   for (const filePath of result.filePaths) {
