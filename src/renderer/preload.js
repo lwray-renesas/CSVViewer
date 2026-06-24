@@ -7,4 +7,10 @@ const {
 contextBridge.exposeInMainWorld('api', {
   // Invocation API
   OpenCsvFiles: () => ipcRenderer.invoke('open-csv-files'),
+
+  GenerateWaveform: (data, expr) =>
+      ipcRenderer.invoke('generate-waveform', {data, expr}),
+
+  GetFunctions: () => ipcRenderer.invoke('get-functions')
+
 });

@@ -1,4 +1,5 @@
 let loadedFiles = [];
+let generatedWaveforms = [];
 const datasets = [];
 const dataBuffers = [];
 
@@ -92,6 +93,8 @@ function updateFileIndices() {
     }
   });
 
+  updateDatasetSelector();
+  updateExpressionPreview();
   chart.update();
 }
 
@@ -200,8 +203,173 @@ function removeFile(fileRecord) {
   updateFileIndices();
 }
 
+function addWaveformEntry(name, datasetIndex) {
+  const list = document.getElementById('waveformList');
+
+  const entry = document.createElement('div');
+  entry.className = 'file-entry';
+
+  const label = document.createElement('div');
+  label.className = 'file-path';
+  label.innerText = name;
+
+  const removeBtn = document.createElement('div');
+  removeBtn.className = 'file-remove';
+  removeBtn.innerText = '✕';
+
+  entry.appendChild(label);
+  entry.appendChild(removeBtn);
+  list.appendChild(entry);
+
+  const record = {dataset: datasets[datasetIndex], element: entry};
+
+  generatedWaveforms.push(record);
+
+  removeBtn.onclick = () => removeWaveform(record);
+}
+
+function removeWaveform(record) {
+  const index = datasets.indexOf(record.dataset);
+
+  if (index !== -1) {
+    datasets.splice(index, 1);
+  }
+
+  // Remove from DOM
+  record.element.remove();
+
+  // Remove from list
+  generatedWaveforms = generatedWaveforms.filter(w => w !== record);
+
+  updateDatasetSelector();
+  updateExpressionPreview();
+  chart.update();
+}
+
+function buildExpression() {
+  const fn = document.getElementById('functionSelect').value;
+  const param = document.getElementById('functionParam').value.trim();
+
+  if (!param) return null;
+
+  return `${fn}(${param})`;
+}
+
+function updateDatasetSelector() {
+  const select = document.getElementById('datasetSelect');
+  if (!select) return;
+
+  select.innerHTML = '';
+
+  datasets.forEach((ds, i) => {
+    const option = document.createElement('option');
+    option.value = i;
+    option.text = ds.label;
+    select.appendChild(option);
+  });
+}
+
+function updateExpressionPreview() {
+  const expr = buildExpression();
+  const preview = document.getElementById('expressionPreview');
+  const datasetSelect = document.getElementById('datasetSelect');
+
+  // Reset styles
+  preview.style.borderColor = '';
+  preview.style.background = '';
+
+  if (!expr) {
+    preview.innerHTML = '';
+    preview.classList.remove('active');
+    return;
+  }
+
+  const datasetIndex = parseInt(datasetSelect.value, 10);
+  const sourceDataset = datasets[datasetIndex];
+
+  if (!sourceDataset) {
+    preview.innerHTML = '';
+    preview.classList.remove('active');
+    return;
+  }
+
+  const inputName = sourceDataset.rawHeader;
+
+  // Inject as FIRST argument
+  const parsed = expr.match(/^(\w+)\((.*)\)$/);
+
+  let displayExpr = expr;
+
+  if (parsed) {
+    const fn = parsed[1];
+    const args = parsed[2];
+
+    displayExpr = args ? `${fn}(${inputName}, ${args})` : `${fn}(${inputName})`;
+  }
+
+  preview.innerHTML = `<span class="expr-label">fx</span> ` +
+      `<span class="expr-fn"> = ${parsed ? parsed[1] : ''}</span>` +
+      `(` +
+      `<span class="expr-input">${inputName}</span>` +
+      (parsed && parsed[2] ? `, ${parsed[2]}` : '') + `)`;
+
+  preview.classList.add('active');
+}
+
+function showExpressionError(message) {
+  const preview = document.getElementById('expressionPreview');
+
+  preview.innerHTML = `<span class="expr-label">error</span> ${message}`;
+  preview.classList.add('active');
+
+  // make it red
+  preview.style.borderColor = '#ef4444';
+  preview.style.background = 'rgba(239,68,68,0.1)';
+}
+
+async function createDerivedWaveform(datasetIndex, expr) {
+  const sourceDataset = datasets[datasetIndex];
+  if (!sourceDataset) return;
+
+  const response = await window.api.GenerateWaveform(sourceDataset.data, expr);
+
+  if (!response.success) {
+    showExpressionError(response.error);
+    return;
+  }
+
+  const name = `${sourceDataset.label}_${expr}`;
+
+  datasets.push({
+    label: name,
+    rawHeader: name,
+    data: response.result,
+    borderColor: getColour(datasets.length),
+    borderWidth: 2,
+    tension: 0.2,
+    pointRadius: 0,
+  });
+
+  const newIndex = datasets.length - 1;
+  addWaveformEntry(name, newIndex)
+
+  updateDatasetSelector();
+  chart.update();
+}
 
 window.addEventListener('DOMContentLoaded', async () => {
+  const functions = await window.api.GetFunctions();
+
+  const select = document.getElementById('functionSelect');
+  select.innerHTML = '';
+
+  functions.forEach(f => {
+    const option = document.createElement('option');
+    option.value = f.id;
+    option.text = `${f.name}`;
+    select.appendChild(option);
+  });
+
   // Add events listeners to UI
   document.getElementById('AddFile').onclick = async () => {
     const files = await window.api.OpenCsvFiles();  // you'll add this IPC
@@ -214,6 +382,23 @@ window.addEventListener('DOMContentLoaded', async () => {
   ctx.canvas.addEventListener('dblclick', () => {
     chart.resetZoom();
   });
+
+  document.getElementById('functionSelect').onchange = updateExpressionPreview;
+
+  document.getElementById('functionParam').oninput = updateExpressionPreview;
+
+  document.getElementById('addWaveform').onclick = () => {
+    const datasetIndex =
+        parseInt(document.getElementById('datasetSelect').value, 10);
+
+    const expr = buildExpression();
+
+    if (!expr) {
+      showExpressionError('Please enter a parameter');
+      return;
+    }
+    createDerivedWaveform(datasetIndex, expr);
+  };
 });
 
 window.onload = () => {

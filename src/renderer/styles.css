@@ -33,6 +33,7 @@ body {
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: var(--radius);
   padding: 18px;
+  overflow-y: auto;
 }
 
 /* FILES*/
@@ -90,6 +91,130 @@ body {
 
 .controls-table tr:not(:last-child) {
   border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+/* INPUTS + DROPDOWNS */
+select,
+input {
+  width: 90%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(30,41,59,0.6);
+  color: var(--text);
+  font-size: 0.8rem;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+/* Hover */
+select:hover,
+input:hover {
+  border-color: rgba(255,255,255,0.18);
+}
+
+/* Focus */
+select:focus,
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Dropdown arrow styling (cleaner look) */
+select {
+  background-color: rgba(30,41,59,0.6);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+
+  padding: 8px 36px 8px 10px; /* ✅ extra right padding for arrow */
+
+  color: var(--text);
+  font-size: 0.8rem;
+
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+
+}
+
+/* Option dropdown (limited styling support but helps) */
+option {
+  background: #1e293b;
+  color: var(--text);
+}
+
+/* Space the waveform builder nicely */
+#datasetSelect,
+#functionSelect,
+#functionParam {
+  margin-bottom: 8px;
+}
+
+/* Expression preview polish */
+.expression-preview {
+  margin-top: 8px;
+  padding: 8px 10px;
+
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+
+  background: rgba(30, 41, 59, 0.4);
+
+  font-family: monospace;
+  font-size: 0.78rem;
+
+  color: var(--text);
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  transition: all 0.15s ease;
+}
+
+.preview-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 6px;
+  margin-bottom: 4px;
+}
+
+.expression-preview.active {
+  border-color: var(--accent);
+  background: rgba(59,130,246,0.08);
+}
+
+.expr-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--accent);
+
+  background: rgba(59,130,246,0.15);
+  padding: 2px 6px;
+  border-radius: 6px;
+
+  text-transform: lowercase;
+  letter-spacing: 0.5px;
+}
+
+.expr-input {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.expr-fn {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.expr-arrow {
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.expr-output {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* MAIN */
