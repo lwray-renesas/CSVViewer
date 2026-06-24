@@ -30,6 +30,7 @@ For another useful tool which allows streaming of CSV binary encoded data check 
   - [Running Source](#running-source)
   - [Release Page](#release-page)
 - [Using the Tool](#using-the-tool)
+- [Waveform Builder](#waveform-builder)
 - [Data Handling](#data-handling)
 - [License](#license)
 
@@ -46,6 +47,11 @@ For another useful tool which allows streaming of CSV binary encoded data check 
 - ✅ Zoom box selection
 - ✅ Reset view (double-click or key press)
 - ✅ File-based dataset grouping
+- ✅ Derived waveform generation (scale, filter, clip, etc.)
+- ✅ Expression-based transformations
+- ✅ Inline expression preview
+- ✅ Remove generated waveforms independently
+
 
 ---
 
@@ -114,10 +120,47 @@ Datasets in the chart correspond to these indices.
 An example of typical usage is shown in the image below.
 
 ![Using the Tool](img/UsingTheTool.gif "Using the Tool")
+---
+
+## Waveform Builder
+
+The Waveform Builder allows you to generate new datasets (waveforms) by applying mathematical operations to existing signals.
+An example of typical usage is shown in the image below.
+
+![Waveform Builder](img/WaveformBuilder.gif "Waveform Builder")
+
+### Creating a derived waveform
+
+1. Select a source dataset from the dropdown
+2. Select a transformation function
+3. Enter the required parameters
+4. Click **Add**
+
+A preview of the operation is shown before applying it, for example:
+```
+lpf(Voltage, 0.1)
+```
+This makes it clear what signal is being operated on and how.
+
+### Supported operations
+
+| Function        | Parameters        | Description |
+|----------------|------------------|-------------|
+| `scale`        | `factor`         | Multiplies all values in the dataset by a constant factor. Useful for unit conversion or amplitude scaling. |
+| `lpf`          | `coeff`          | Applies a simple low-pass filter using an exponential moving average. Lower values produce heavier smoothing. |
+| `clip`         | `min, max`       | Limits the dataset values to a specified range. Values below `min` are raised, and values above `max` are reduced. |
+
+
+### Generated waveforms
+
+- Newly created waveforms are added to the chart
+- They are listed in the **Waveforms** section of the sidebar
+- Each waveform can be removed independently using ✕
 
 ---
 
 ## Data Handling
+When parsing the CSV file the following applies:
 - The first row is used as column headers
 - Headers starting with # are cleaned automatically
 - All rows before valid numeric data are ignored

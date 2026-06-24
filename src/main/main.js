@@ -30,7 +30,7 @@ function clipFn(data, args) {
 }
 
 const SUPPORTED_FUNCTIONS = {
-  scale: {name: 'Scale(coeff)', params: 1, fn: scaleFn},
+  scale: {name: 'Scale(factor)', params: 1, fn: scaleFn},
   lpf: {name: 'LPF(coeff)', params: 1, fn: lpfFn},
   clip: {name: 'Clip(min,max)', params: 2, fn: clipFn}
 };
