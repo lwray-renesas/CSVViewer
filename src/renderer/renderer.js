@@ -118,26 +118,11 @@ function addFile(file) {
   fileList.appendChild(entry);
 
   const rawHeaders = file.headers;
-  const headers = rawHeaders.map(h => h.replace(/^#/, '').trim());
-
-  let startIndex = 0;
-
-  for (let i = 0; i < file.rows.length; i++) {
-    const row = file.rows[i];
-
-    const values = headers.map((h, idx) => Number(row[rawHeaders[idx]]));
-
-    const hasNumber = values.some(v => !Number.isNaN(v));
-
-    if (hasNumber) {
-      startIndex = i;
-      break;
-    }
-  }
+  const headers = rawHeaders
 
   const buffers = headers.map(() => []);
 
-  for (let i = startIndex; i < file.rows.length; i++) {
+  for (let i = 0; i < file.rows.length; i++) {
     const row = file.rows[i];
 
     headers.forEach((header, colIndex) => {

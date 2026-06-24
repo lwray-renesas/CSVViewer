@@ -104,11 +104,39 @@ ipcMain.handle('open-csv-files', async () => {
   for (const filePath of result.filePaths) {
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
+      const lines = content.split(/\r?\n/).filter(l => l.trim() !== '');
 
-      const rows = parse.parse(content, {
-        columns: true,
-        skip_empty_lines: true,
-      });
+      if (lines.length === 0) return [];
+
+      const headers = lines[0].split(',').map(h => h.replace(/^#+/, '').trim());
+
+      // Skip metadata rows until first numeric row
+      let startIndex = 1;
+
+      for (; startIndex < lines.length; startIndex++) {
+        const parts = lines[startIndex].split(',');
+
+        const hasNumber = parts.some(v => !Number.isNaN(Number(v)));
+
+        if (hasNumber) break;
+      }
+
+      // Parse rows
+      const rows = [];
+
+      for (let i = startIndex; i < lines.length; i++) {
+        const parts = lines[i].split(',');
+
+        if (parts.length !== headers.length) continue;  // skip malformed
+
+        const row = {};
+
+        headers.forEach((h, idx) => {
+          row[h] = parts[idx];
+        });
+
+        rows.push(row);
+      }
 
       filesData.push({
         path: filePath,
