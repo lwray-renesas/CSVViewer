@@ -15,6 +15,8 @@ Built with Electron, it allows you to:
 
 The tool is designed for engineers and developers who need a fast, simple way to explore time-series or tabular data.
 
+For another useful tool which allows streaming of CSV binary encoded data check out [CSVBinaryPlotter](https://github.com/lwray-renesas/CSVBinaryPlotter).
+
 ---
 
 ## Table of Contents
