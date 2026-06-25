@@ -146,9 +146,17 @@ This makes it clear what signal is being operated on and how.
 
 | Function        | Parameters        | Description |
 |----------------|------------------|-------------|
-| `scale`        | `factor`         | Multiplies all values in the dataset by a constant factor. Useful for unit conversion or amplitude scaling. |
-| `lpf`          | `coeff`          | Applies a simple low-pass filter using an exponential moving average. Lower values produce heavier smoothing. |
-| `clip`         | `min, max`       | Limits the dataset values to a specified range. Values below `min` are raised, and values above `max` are reduced. |
+| `lpf`          | `coeff`          | Applies a low-pass filter using an exponential moving average.<br>Lower values produce heavier smoothing.<br>Coefficient must be between `0` and `1`. |
+| `hpf`          | `coeff`          | Applies a high-pass filter to remove low-frequency components.<br>Coefficient must be between `0` and `1`. |
+| `medfilter`    | `window`         | Applies a median filter over a sliding window.<br>Useful for removing spikes and impulse noise.<br>Window must be a positive integer. |
+| `sma`          | `window`         | Computes a simple moving average over a sliding window.<br>Smooths short-term fluctuations.<br>Window must be a positive integer. |
+| `rms`          | `window`         | Computes the root-mean-square over a sliding window.<br>Useful for analysing signal energy or envelope.<br>Window must be a positive integer. |
+| `diff`         | *(none)*         | Computes the first-order difference between consecutive samples.<br>Useful for detecting rate of change. |
+| `scale`        | `factor`         | Multiplies all values in the dataset by a constant factor.<br>Useful for scaling or unit conversion. |
+| `offset`       | `offset`         | Adds a constant value to all dataset entries.<br>Useful for baseline shifting. |
+| `clip`         | `min, max`       | Limits values to a specified range.<br>Values below `min` are raised, values above `max` are reduced.<br>`min` must be less than `max`. |
+| `abs`          | *(none)*         | Converts all values to their absolute magnitude.<br>Useful for rectification. |
+| `norm`         | *(none)*         | Normalises values to the range `0 → 1` using the dataset’s minimum and maximum values. |
 
 
 ### Generated waveforms

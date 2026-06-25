@@ -235,8 +235,6 @@ function buildExpression() {
   const fn = document.getElementById('functionSelect').value;
   const param = document.getElementById('functionParam').value.trim();
 
-  if (!param) return null;
-
   return `${fn}(${param})`;
 }
 
@@ -244,6 +242,7 @@ function updateDatasetSelector() {
   const select = document.getElementById('datasetSelect');
   if (!select) return;
 
+  const previousValue = select.value;
   select.innerHTML = '';
 
   datasets.forEach((ds, i) => {
@@ -252,6 +251,13 @@ function updateDatasetSelector() {
     option.text = ds.label;
     select.appendChild(option);
   });
+
+  if (previousValue !== '' && datasets[previousValue]) {
+    select.value = previousValue;
+  } else if (datasets.length > 0) {
+    // fallback to first entry
+    select.value = 0;
+  }
 }
 
 function updateExpressionPreview() {
@@ -264,7 +270,7 @@ function updateExpressionPreview() {
   preview.style.background = '';
 
   if (!expr) {
-    preview.innerHTML = '';
+    preview.innerHTML = `<span class="expr-label">fx</span>`;
     preview.classList.remove('active');
     return;
   }
@@ -273,7 +279,7 @@ function updateExpressionPreview() {
   const sourceDataset = datasets[datasetIndex];
 
   if (!sourceDataset) {
-    preview.innerHTML = '';
+    preview.innerHTML = `<span class="expr-label">fx</span>`;
     preview.classList.remove('active');
     return;
   }
@@ -314,7 +320,11 @@ function showExpressionError(message) {
 
 async function createDerivedWaveform(datasetIndex, expr) {
   const sourceDataset = datasets[datasetIndex];
-  if (!sourceDataset) return;
+
+  if (!sourceDataset) {
+    showExpressionError('Invalid Dataset Selected!');
+    return;
+  }
 
   const response = await window.api.GenerateWaveform(sourceDataset.data, expr);
 
@@ -368,6 +378,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     chart.resetZoom();
   });
 
+  document.getElementById('datasetSelect').onchange = updateExpressionPreview;
+
   document.getElementById('functionSelect').onchange = updateExpressionPreview;
 
   document.getElementById('functionParam').oninput = updateExpressionPreview;
@@ -378,12 +390,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const expr = buildExpression();
 
-    if (!expr) {
-      showExpressionError('Please enter a parameter');
-      return;
-    }
     createDerivedWaveform(datasetIndex, expr);
   };
+
+  updateExpressionPreview();
 });
 
 window.onload = () => {
