@@ -66,6 +66,7 @@ const chart = new Chart(ctx, {
       x: {
         grid: {color: 'rgba(255,255,255,0.05)'},
         ticks: {color: '#94a3b8'},
+        type: 'linear'
       },
       y: {
         grid: {color: 'rgba(255,255,255,0.05)'},
@@ -83,7 +84,7 @@ function finishCsvLoad() {
     headers: csvHeaders,
     buffers,
   };
-
+  setLoadingState(false);
   addLoadedFile(file);
 }
 
@@ -123,13 +124,14 @@ async function csvLoadLoop() {
 
   const chunk = await window.api.GetCsvChunk();
 
+  setLoadingState(true, chunk.progress, 'Opening file...');
+
   processCsvChunk(chunk.rows);
 
   if (!chunk.done) {
     requestAnimationFrame(csvLoadLoop);
   } else {
     csvLoading = false;
-
     finishCsvLoad();
   }
 }
@@ -142,7 +144,34 @@ function beginCsvLoad(path) {
 
   csvLoading = true;
 
+  setLoadingState(true, 0, 'Opening file...');
+
   requestAnimationFrame(csvLoadLoop);
+}
+
+// Sets loading state
+function setLoadingState(loading, progress = 0, text = '') {
+  const overlay = document.getElementById('loadingOverlay');
+
+  const fill = document.getElementById('progressFill');
+  const label = document.getElementById('loadingText');
+  const percent = document.getElementById('progressPercent');
+
+  if (loading) {
+    overlay.classList.remove('hidden');
+
+    fill.style.width = `${progress}%`;
+    percent.innerText = `${progress.toFixed(0)}%`;
+
+    label.innerText = text;
+
+  } else {
+    overlay.classList.add('hidden');
+  }
+
+  document.querySelectorAll('button,select,input').forEach(el => {
+    el.disabled = loading;
+  });
 }
 
 // Helper function to generate a new colour
@@ -213,7 +242,7 @@ function addLoadedFile(file) {
     datasets.push({
       label: '',              // set later by index updater
       rawHeader: headers[i],  // store clean header
-      data: numericBuffer,
+      data: numericBuffer.map((y, x) => ({x, y})),
       borderColor: getColour(datasets.length),
       borderWidth: 2,
       pointRadius: 0,
@@ -221,7 +250,6 @@ function addLoadedFile(file) {
   });
 
   chart.data.datasets = datasets;
-  chart.data.labels = [...Array(buffers[0].length).keys()];
 
   const fileRecord = {
     path: file.path,
@@ -440,6 +468,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Add events listeners to UI
   document.getElementById('AddFile').onclick = async () => {
+    if (csvLoading) {
+      return;
+    }
     const file = await window.api.OpenCsvFiles();
     if (!file) {
       return;

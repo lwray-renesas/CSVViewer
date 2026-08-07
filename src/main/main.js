@@ -4,6 +4,7 @@ const fs = require('fs');
 const readline = require('readline');
 
 let win;
+let csvLoadSession = null;
 
 function requireParamCount(args, expected, name) {
   if (args.length !== expected) {
@@ -362,12 +363,14 @@ ipcMain.handle('open-csv-files', async () => {
   });
 
   const iterator = reader[Symbol.asyncIterator]();
-
+  const stats = fs.statSync(filePath);
   csvLoadSession = {
     filePath,
     iterator,
     headers: null,
     finished: false,
+    totalBytes: stats.size,
+    bytesRead: 0
   };
 
   return {
@@ -400,17 +403,19 @@ ipcMain.handle('csv-get-next-chunk', async () => {
     }
 
     const line = result.value.trim();
-
     if (!line) {
       continue;
     }
-
+    csvLoadSession.bytesRead += Buffer.byteLength(line, 'utf8') + 1;
     rows.push(line);
   }
 
   return {
     done: csvLoadSession.finished,
     rows,
+    progress: Math.min(
+        100, (csvLoadSession.bytesRead / csvLoadSession.totalBytes) * 100),
+
   };
 });
 
