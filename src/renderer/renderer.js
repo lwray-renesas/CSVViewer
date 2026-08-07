@@ -84,7 +84,7 @@ function finishCsvLoad() {
     headers: csvHeaders,
     buffers,
   };
-  setLoadingState(false, 0, 'Reading CSV...', 'Loading CSV...');
+  setLoadingState(false, 'Loading... 0%');
   addLoadedFile(file);
 }
 
@@ -124,7 +124,7 @@ async function csvLoadLoop() {
 
   const chunk = await window.api.GetCsvChunk();
 
-  setLoadingState(true, chunk.progress, 'Reading CSV...', 'Loading CSV...');
+  setLoadingState(true, `Loading... ${chunk.progress.toFixed(0)}%`);
 
   processCsvChunk(chunk.rows);
 
@@ -144,28 +144,19 @@ function beginCsvLoad(path) {
 
   csvLoading = true;
 
-  setLoadingState(true, 0, 'Reading CSV...', 'Loading CSV...');
+  setLoadingState(true, 'Loading...0%');
 
   requestAnimationFrame(csvLoadLoop);
 }
 
 // Sets loading state
-function setLoadingState(loading, progress = 0, text = '', title_text = '') {
+function setLoadingState(loading, text = '') {
   const overlay = document.getElementById('loadingOverlay');
-
-  const fill = document.getElementById('progressFill');
-  const label = document.getElementById('loadingText');
-  const title = document.getElementById('loadingTitle');
-  const percent = document.getElementById('progressPercent');
+  const msg = document.getElementById('loadingMessage');
 
   if (loading) {
     overlay.classList.remove('hidden');
-
-    fill.style.width = `${progress}%`;
-    percent.innerText = `${progress.toFixed(0)}%`;
-
-    label.innerText = text;
-    title.innerText = title_text;
+    msg.innerText = text;
 
   } else {
     overlay.classList.add('hidden');
@@ -430,8 +421,7 @@ async function createDerivedWaveform(datasetIndex, expr) {
   }
 
   try {
-    setLoadingState(
-        true, 50, 'Generating Wavform...', 'Generating Waveform...');
+    setLoadingState(true, 'Generating Waveform...');
 
     const response = await window.api.GenerateWaveform(sourceData, expr);
     if (!response.success) {
@@ -460,7 +450,7 @@ async function createDerivedWaveform(datasetIndex, expr) {
 
     chart.update();
   } finally {
-    setLoadingState(false);
+    setLoadingState(false, 'Complete!');
   }
 }
 
