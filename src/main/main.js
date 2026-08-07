@@ -389,8 +389,7 @@ ipcMain.handle('csv-get-next-chunk', async () => {
       rows: [],
     };
   }
-
-  const CHUNK_SIZE = 1000;
+  const CHUNK_SIZE = 3500;
 
   const rows = [];
 
