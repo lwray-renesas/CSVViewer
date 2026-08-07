@@ -3,6 +3,11 @@ let generatedWaveforms = [];
 const datasets = [];
 const dataBuffers = [];
 
+let csvLoading = false;
+let csvHeaders = null;
+let csvBuffers = [];
+let csvPath = '';
+
 const ctx = document.getElementById('chart').getContext('2d');
 
 const chart = new Chart(ctx, {
@@ -26,6 +31,10 @@ const chart = new Chart(ctx, {
         labels: {
           color: '#e5e7eb',
         },
+      },
+      decimation: {
+        enabled: true,
+        algorithm: 'min-max',
       },
 
       zoom: {
@@ -65,6 +74,67 @@ const chart = new Chart(ctx, {
   },
 });
 
+function finishCsvLoad() {
+  const buffers = csvBuffers;
+
+  const file = {
+    path: csvPath,
+    headers: csvHeaders,
+    buffers,
+  };
+
+  addLoadedFile(file);
+}
+
+function processCsvChunk(lines) {
+  for (const line of lines) {
+    const parts = line.split(',');
+    if (!csvHeaders) {
+      csvHeaders = parts.map(h => h.replace(/^#+/, '').trim());
+      csvBuffers = csvHeaders.map(() => []);
+      continue;
+    }
+
+    // Skip row if ANY field is empty
+    if (parts.some(v => v.trim() === '')) {
+      continue;
+    }
+
+    parts.forEach((value, index) => {
+      const num = Number(value);
+      csvBuffers[index].push(Number.isNaN(num) ? null : num);
+    });
+  }
+}
+
+async function csvLoadLoop() {
+  if (!csvLoading) {
+    return;
+  }
+
+  const chunk = await window.api.GetCsvChunk();
+
+  processCsvChunk(chunk.rows);
+
+  if (!chunk.done) {
+    requestAnimationFrame(csvLoadLoop);
+  } else {
+    csvLoading = false;
+
+    finishCsvLoad();
+  }
+}
+
+function beginCsvLoad(path) {
+  csvPath = path;
+  csvHeaders = null;
+  csvBuffers = [];
+
+  csvLoading = true;
+
+  requestAnimationFrame(csvLoadLoop);
+}
+
 // Helper function to generate a new colour
 function getColour(index) {
   const goldenRatio = 137.508;  // spreads colours nicely
@@ -99,7 +169,7 @@ function updateFileIndices() {
 }
 
 // Helper function to add data to plot from file
-function addFile(file) {
+function addLoadedFile(file) {
   const fileList = document.getElementById('fileList');
 
   const entry = document.createElement('div');
@@ -117,32 +187,25 @@ function addFile(file) {
   entry.appendChild(removeBtn);
   fileList.appendChild(entry);
 
-  const rawHeaders = file.headers;
-  const headers = rawHeaders
-
-  const buffers = headers.map(() => []);
-
-  for (let i = 0; i < file.rows.length; i++) {
-    const row = file.rows[i];
-
-    headers.forEach((header, colIndex) => {
-      const value = Number(row[rawHeaders[colIndex]]);
-      buffers[colIndex].push(Number.isNaN(value) ? null : value);
-    });
-  }
+  const headers = file.headers;
+  const buffers = file.buffers;
 
   const datasetStartIndex = datasets.length;
 
   buffers.forEach((buffer, i) => {
-    dataBuffers.push(buffer);
+    const numericBuffer = buffer.map(v => {
+      const n = Number(v);
+      return Number.isNaN(n) ? null : n;
+    });
+
+    dataBuffers.push(numericBuffer);
 
     datasets.push({
       label: '',              // set later by index updater
       rawHeader: headers[i],  // store clean header
-      data: buffer,
+      data: numericBuffer,
       borderColor: getColour(datasets.length),
       borderWidth: 2,
-      tension: 0.2,
       pointRadius: 0,
     });
   });
@@ -367,11 +430,11 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Add events listeners to UI
   document.getElementById('AddFile').onclick = async () => {
-    const files = await window.api.OpenCsvFiles();  // you'll add this IPC
-
-    files.forEach(file => {
-      addFile(file);
-    });
+    const file = await window.api.OpenCsvFiles();
+    if (!file) {
+      return;
+    }
+    beginCsvLoad(file.path);
   };
 
   ctx.canvas.addEventListener('dblclick', () => {

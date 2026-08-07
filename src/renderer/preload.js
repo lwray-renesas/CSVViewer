@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('api', {
   // Invocation API
   OpenCsvFiles: () => ipcRenderer.invoke('open-csv-files'),
 
+  GetCsvChunk: () => ipcRenderer.invoke('csv-get-next-chunk'),
+
   GenerateWaveform: (data, expr) =>
       ipcRenderer.invoke('generate-waveform', {data, expr}),
 

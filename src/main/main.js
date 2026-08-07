@@ -1,6 +1,7 @@
 const {app, BrowserWindow, ipcMain, dialog, Menu} = require('electron');
 const path = require('path');
 const fs = require('fs');
+const readline = require('readline');
 
 let win;
 
@@ -343,65 +344,74 @@ app.whenReady().then(() => {
 ipcMain.handle('open-csv-files', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open CSV Files',
-    properties: ['openFile', 'multiSelections'],
+    properties: ['openFile'],
     filters: [{name: 'CSV Files', extensions: ['csv']}],
   });
 
   if (result.canceled || result.filePaths.length === 0) {
-    return [];
+    return null;
   }
 
-  const filesData = [];
+  const filePath = result.filePaths[0];
 
-  for (const filePath of result.filePaths) {
-    try {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const lines = content.split(/\r?\n/).filter(l => l.trim() !== '');
+  const stream = fs.createReadStream(filePath);
 
-      if (lines.length === 0) return [];
+  const reader = readline.createInterface({
+    input: stream,
+    crlfDelay: Infinity,
+  });
 
-      const headers = lines[0].split(',').map(h => h.replace(/^#+/, '').trim());
+  const iterator = reader[Symbol.asyncIterator]();
 
-      // Skip metadata rows until first numeric row
-      let startIndex = 1;
+  csvLoadSession = {
+    filePath,
+    iterator,
+    headers: null,
+    finished: false,
+  };
 
-      for (; startIndex < lines.length; startIndex++) {
-        const parts = lines[startIndex].split(',');
+  return {
+    path: filePath,
+  };
+});
 
-        const hasNumber = parts.some(v => !Number.isNaN(Number(v)));
+// =========================
+// CSV Chunks
+// =========================
+ipcMain.handle('csv-get-next-chunk', async () => {
+  if (!csvLoadSession) {
+    return {
+      done: true,
+      headers: [],
+      rows: [],
+    };
+  }
 
-        if (hasNumber) break;
-      }
+  const CHUNK_SIZE = 1000;
 
-      // Parse rows
-      const rows = [];
+  const rows = [];
 
-      for (let i = startIndex; i < lines.length; i++) {
-        const parts = lines[i].split(',');
+  while (rows.length < CHUNK_SIZE) {
+    const result = await csvLoadSession.iterator.next();
 
-        if (parts.length !== headers.length) continue;  // skip malformed
-
-        const row = {};
-
-        headers.forEach((h, idx) => {
-          row[h] = parts[idx];
-        });
-
-        rows.push(row);
-      }
-
-      filesData.push({
-        path: filePath,
-        headers: Object.keys(rows[0] || {}),
-        rows,
-      });
-
-    } catch (err) {
-      console.error(`Failed to load ${filePath}:`, err);
+    if (result.done) {
+      csvLoadSession.finished = true;
+      break;
     }
+
+    const line = result.value.trim();
+
+    if (!line) {
+      continue;
+    }
+
+    rows.push(line);
   }
 
-  return filesData;
+  return {
+    done: csvLoadSession.finished,
+    rows,
+  };
 });
 
 // =========================
