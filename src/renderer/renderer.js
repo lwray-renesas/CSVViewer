@@ -21,7 +21,7 @@ const chart = new Chart(ctx, {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
-
+    parsing: false,
     interaction: {
       intersect: false,
       mode: 'index',
@@ -84,7 +84,7 @@ function finishCsvLoad() {
     headers: csvHeaders,
     buffers,
   };
-  setLoadingState(false);
+  setLoadingState(false, 0, 'Reading CSV...', 'Loading CSV...');
   addLoadedFile(file);
 }
 
@@ -124,7 +124,7 @@ async function csvLoadLoop() {
 
   const chunk = await window.api.GetCsvChunk();
 
-  setLoadingState(true, chunk.progress, 'Opening file...');
+  setLoadingState(true, chunk.progress, 'Reading CSV...', 'Loading CSV...');
 
   processCsvChunk(chunk.rows);
 
@@ -144,17 +144,18 @@ function beginCsvLoad(path) {
 
   csvLoading = true;
 
-  setLoadingState(true, 0, 'Opening file...');
+  setLoadingState(true, 0, 'Reading CSV...', 'Loading CSV...');
 
   requestAnimationFrame(csvLoadLoop);
 }
 
 // Sets loading state
-function setLoadingState(loading, progress = 0, text = '') {
+function setLoadingState(loading, progress = 0, text = '', title_text = '') {
   const overlay = document.getElementById('loadingOverlay');
 
   const fill = document.getElementById('progressFill');
   const label = document.getElementById('loadingText');
+  const title = document.getElementById('loadingTitle');
   const percent = document.getElementById('progressPercent');
 
   if (loading) {
@@ -164,6 +165,7 @@ function setLoadingState(loading, progress = 0, text = '') {
     percent.innerText = `${progress.toFixed(0)}%`;
 
     label.innerText = text;
+    title.innerText = title_text;
 
   } else {
     overlay.classList.add('hidden');
@@ -420,37 +422,46 @@ function showExpressionError(message) {
 }
 
 async function createDerivedWaveform(datasetIndex, expr) {
-  const sourceDataset = datasets[datasetIndex];
+  const sourceData = dataBuffers[datasetIndex];
 
-  if (!sourceDataset) {
+  if (!sourceData) {
     showExpressionError('Invalid Dataset Selected!');
     return;
   }
 
-  const response = await window.api.GenerateWaveform(sourceDataset.data, expr);
+  try {
+    setLoadingState(
+        true, 50, 'Generating Wavform...', 'Generating Waveform...');
 
-  if (!response.success) {
-    showExpressionError(response.error);
-    return;
+    const response = await window.api.GenerateWaveform(sourceData, expr);
+    if (!response.success) {
+      showExpressionError(response.error);
+      return;
+    }
+
+    dataBuffers.push(response.result);
+
+    const name = `${datasets[datasetIndex].label}_${expr}`;
+
+    datasets.push({
+      label: name,
+      rawHeader: name,
+      data: response.result.map((y, x) => ({x, y})),
+      borderColor: getColour(datasets.length),
+      borderWidth: 2,
+      tension: 0.2,
+      pointRadius: 0,
+    });
+
+    const newIndex = datasets.length - 1;
+    addWaveformEntry(name, newIndex)
+
+    updateDatasetSelector();
+
+    chart.update();
+  } finally {
+    setLoadingState(false);
   }
-
-  const name = `${sourceDataset.label}_${expr}`;
-
-  datasets.push({
-    label: name,
-    rawHeader: name,
-    data: response.result,
-    borderColor: getColour(datasets.length),
-    borderWidth: 2,
-    tension: 0.2,
-    pointRadius: 0,
-  });
-
-  const newIndex = datasets.length - 1;
-  addWaveformEntry(name, newIndex)
-
-  updateDatasetSelector();
-  chart.update();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
