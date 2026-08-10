@@ -7,7 +7,7 @@ let csvLoading = false;
 let csvHeaders = null;
 let csvBuffers = [];
 let csvPath = '';
-let headerLinesSeen = 0;
+let headerSeen = false;
 
 const ctx = document.getElementById('chart').getContext('2d');
 
@@ -92,20 +92,21 @@ function processCsvChunk(lines) {
   for (const line of lines) {
     const parts = line.split(',');
 
-    // Process first 3 lines differently
-    if (headerLinesSeen < 3) {
-      if (headerLinesSeen === 0) {
-        csvHeaders = parts.map(h => h.replace(/^#+/, '').trim());
-
-        csvBuffers = csvHeaders.map(() => []);
-      }
-
-      headerLinesSeen++;
+    // Process header line differently
+    if (!headerSeen) {
+      csvHeaders = parts.map(h => h.replace(/^#+/, '').trim());
+      csvBuffers = csvHeaders.map(() => []);
+      headerSeen = true;
       continue;
     }
 
-    // Skip row if ANY field is empty
-    if (parts.some(v => v.trim() === '')) {
+    // Skip row if ANY field is empty OR NaN
+    let isInvalid = parts.some(v => {
+      const value = v.trim();
+      return value === '' || Number.isNaN(Number(value));
+    });
+
+    if (isInvalid) {
       continue;
     }
 
@@ -140,7 +141,7 @@ function beginCsvLoad(path) {
   csvPath = path;
   csvHeaders = null;
   csvBuffers = [];
-  headerLinesSeen = 0;
+  headerSeen = false;
 
   csvLoading = true;
 
