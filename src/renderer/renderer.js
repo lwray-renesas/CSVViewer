@@ -8,6 +8,100 @@ let csvHeaders = null;
 let csvBuffers = [];
 let csvPath = '';
 let headerSeen = false;
+let updatePending = false;
+
+
+function decimateMinMax(buffer, start, end, targetPoints) {
+  const range = end - start;
+
+  if (range <= targetPoints) {
+    const data = [];
+
+    for (let x = start; x < end; x++) {
+      data.push({x, y: buffer[x]});
+    }
+
+    return data;
+  }
+
+  const bucketSize = range / targetPoints;
+  const data = [];
+
+  for (let bucket = 0; bucket < targetPoints; bucket++) {
+    const bucketStart = Math.floor(start + bucket * bucketSize);
+
+    const bucketEnd =
+        Math.min(Math.floor(start + (bucket + 1) * bucketSize), end);
+
+    let minY = Infinity;
+    let maxY = -Infinity;
+    let minX = bucketStart;
+    let maxX = bucketStart;
+
+    for (let x = bucketStart; x < bucketEnd; x++) {
+      const y = buffer[x];
+
+      if (y == null) {
+        continue;
+      }
+
+      if (y < minY) {
+        minY = y;
+        minX = x;
+      }
+
+      if (y > maxY) {
+        maxY = y;
+        maxX = x;
+      }
+    }
+
+    if (minY !== Infinity) {
+      if (minX < maxX) {
+        data.push({x: minX, y: minY});
+        data.push({x: maxX, y: maxY});
+      } else {
+        data.push({x: maxX, y: maxY});
+        data.push({x: minX, y: minY});
+      }
+    }
+  }
+
+  return data;
+}
+
+function rebuildFullData(chart) {
+  chart.data.datasets.forEach((dataset, index) => {
+    const buffer = dataBuffers[index];
+
+    dataset.data = buffer.map((y, x) => ({x, y}));
+  });
+
+  chart.update('none');
+}
+
+
+function updateVisibleData(chart) {
+  const start = Math.max(0, Math.floor(chart.scales.x.min ?? 0));
+  const end = Math.ceil(chart.scales.x.max ?? dataBuffers[0].length);
+  const targetPoints = chart.width;
+  chart.data.datasets.forEach((dataset, index) => {
+    dataset.data = decimateMinMax(dataBuffers[index], start, end, targetPoints);
+  });
+
+  chart.update('none');
+}
+
+function scheduleUpdate(chart) {
+  if (updatePending) return;
+
+  updatePending = true;
+
+  requestAnimationFrame(() => {
+    updatePending = false;
+    updateVisibleData(chart);
+  });
+}
 
 const ctx = document.getElementById('chart').getContext('2d');
 
@@ -33,15 +127,13 @@ const chart = new Chart(ctx, {
           color: '#e5e7eb',
         },
       },
-      decimation: {
-        enabled: true,
-        algorithm: 'min-max',
-      },
-
       zoom: {
         pan: {
           enabled: true,
           mode: 'xy',
+          onPan({chart}) {
+            scheduleUpdate(chart);
+          },
         },
         zoom: {
           wheel: {
@@ -58,6 +150,9 @@ const chart = new Chart(ctx, {
             borderWidth: 1,
           },
           mode: 'xy',
+          onZoom({chart}) {
+            scheduleUpdate(chart);
+          },
         }
       }
     },
@@ -244,6 +339,8 @@ function addLoadedFile(file) {
   });
 
   chart.data.datasets = datasets;
+  chart.update();
+  updateVisibleData(chart);
 
   const fileRecord = {
     path: file.path,
@@ -323,7 +420,7 @@ function removeWaveform(record) {
 
   updateDatasetSelector();
   updateExpressionPreview();
-  chart.update();
+  updateVisibleData(chart);
 }
 
 function buildExpression() {
@@ -448,8 +545,7 @@ async function createDerivedWaveform(datasetIndex, expr) {
     addWaveformEntry(name, newIndex)
 
     updateDatasetSelector();
-
-    chart.update();
+    updateVisibleData(chart);
   } finally {
     setLoadingState(false, 'Complete!');
   }
@@ -481,7 +577,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   };
 
   ctx.canvas.addEventListener('dblclick', () => {
-    chart.resetZoom();
+    setLoadingState(true, 'Resetting View...');
+
+    setTimeout(() => {
+      rebuildFullData(chart);
+      chart.resetZoom();
+      updateVisibleData(chart);
+      setLoadingState(false);
+    }, 0);
   });
 
   document.getElementById('datasetSelect').onchange = updateExpressionPreview;
