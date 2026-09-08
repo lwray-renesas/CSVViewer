@@ -1,5 +1,4 @@
 let loadedFiles = [];
-let generatedWaveforms = [];
 const datasets = [];
 const dataBuffers = [];
 
@@ -9,6 +8,7 @@ let csvBuffers = [];
 let csvPath = '';
 let headerSeen = false;
 let updatePending = false;
+let resizingSidebar = false;
 
 
 function decimateMinMax(buffer, start, end, targetPoints) {
@@ -103,6 +103,96 @@ function scheduleUpdate(chart) {
   });
 }
 
+function updateY1AxisVisibility() {
+  const hasSecondaryAxis = datasets.some(ds => ds.yAxisID === 'y1');
+  chart.options.scales.y1.display = hasSecondaryAxis;
+  chart.update();
+}
+
+function removeDataset(index) {
+  datasets.splice(index, 1);
+  dataBuffers.splice(index, 1);
+
+  chart.data.datasets = datasets;
+
+  rebuildSignalList();
+  updateDatasetSelector();
+  updateY1AxisVisibility();
+  updateVisibleData(chart);
+}
+
+function rebuildSignalList() {
+  const signalList = document.getElementById('signalList');
+
+  signalList.innerHTML = '';
+
+  datasets.forEach((ds, index) => {
+    const row = document.createElement('div');
+    row.className = 'signal-entry';
+
+    const colour = document.createElement('div');
+    colour.className = 'signal-colour';
+    colour.style.background = ds.borderColor;
+
+    const name = document.createElement('div');
+    name.className = 'signal-name';
+    name.innerText = ds.label;
+
+    const axis = document.createElement('div');
+    axis.className = 'axis-toggle';
+
+    axis.innerText = ds.yAxisID === 'y1' ? 'R' : 'L';
+
+    updateAxisButtonColour(axis, ds);
+
+    axis.onclick = () => {
+      ds.yAxisID = ds.yAxisID === 'y' ? 'y1' : 'y';
+
+      axis.innerText = ds.yAxisID === 'y1' ? 'R' : 'L';
+
+      updateAxisButtonColour(axis, ds);
+      updateY1AxisVisibility();
+    };
+
+    const removeBtn = document.createElement('div');
+    removeBtn.className = 'file-remove';
+    removeBtn.innerText = '✕';
+
+    removeBtn.onclick = () => {
+      removeDataset(index);
+    };
+
+
+    colour.onclick = () => {
+      const visible = chart.isDatasetVisible(index);
+
+      chart.setDatasetVisibility(index, !visible);
+
+      colour.style.opacity = visible ? '0.25' : '1';
+
+      chart.update();
+    };
+
+    row.appendChild(colour);
+    row.appendChild(name);
+    row.appendChild(axis);
+    row.appendChild(removeBtn);
+
+    signalList.appendChild(row);
+  });
+}
+
+function updateAxisButtonColour(button, dataset) {
+  if (dataset.yAxisID === 'y1') {
+    button.style.color = '#f59e0b';
+    button.style.background = 'rgba(245,158,11,0.15)';
+
+  } else {
+    button.style.color = '#60a5fa';
+    button.style.background = 'rgba(59,130,246,0.15)';
+  }
+}
+
 const ctx = document.getElementById('chart').getContext('2d');
 
 const chart = new Chart(ctx, {
@@ -123,13 +213,7 @@ const chart = new Chart(ctx, {
 
     plugins: {
       legend: {
-        position: 'right',
-        maxWidth: 250,
-        labels: {
-          color: '#e5e7eb',
-          boxWidth: 12,
-          padding: 8,
-        },
+        display: false,
       },
       zoom: {
         pan: {
@@ -172,6 +256,13 @@ const chart = new Chart(ctx, {
         grid: {color: 'rgba(255,255,255,0.05)'},
         ticks: {color: '#94a3b8'},
         bounds: 'data',
+      },
+      y1: {
+        display: false,
+        position: 'right',
+        grid: {drawOnChartArea: false},
+        ticks: {color: '#f59e0b'},
+        bounds: 'data'
       },
     },
   },
@@ -341,6 +432,7 @@ function addLoadedFile(file) {
       borderColor: getColour(datasets.length),
       borderWidth: 2,
       pointRadius: 0,
+      yAxisID: 'y',
     });
   });
 
@@ -360,6 +452,8 @@ function addLoadedFile(file) {
   removeBtn.onclick = () => removeFile(fileRecord);
 
   updateFileIndices();
+  rebuildSignalList();
+  updateY1AxisVisibility();
 }
 
 // Helper function to remove a file
@@ -384,6 +478,8 @@ function removeFile(fileRecord) {
   chart.data.datasets = datasets;
 
   updateFileIndices();
+  rebuildSignalList();
+  updateY1AxisVisibility();
 }
 
 function applyRegexRename(pattern) {
@@ -405,50 +501,8 @@ function applyRegexRename(pattern) {
   });
 
   updateDatasetSelector();
+  rebuildSignalList();
   chart.update();
-}
-
-function addWaveformEntry(name, datasetIndex) {
-  const list = document.getElementById('waveformList');
-
-  const entry = document.createElement('div');
-  entry.className = 'file-entry';
-
-  const label = document.createElement('div');
-  label.className = 'file-path';
-  label.innerText = name;
-
-  const removeBtn = document.createElement('div');
-  removeBtn.className = 'file-remove';
-  removeBtn.innerText = '✕';
-
-  entry.appendChild(label);
-  entry.appendChild(removeBtn);
-  list.appendChild(entry);
-
-  const record = {dataset: datasets[datasetIndex], element: entry};
-
-  generatedWaveforms.push(record);
-
-  removeBtn.onclick = () => removeWaveform(record);
-}
-
-function removeWaveform(record) {
-  const index = datasets.indexOf(record.dataset);
-
-  if (index !== -1) {
-    datasets.splice(index, 1);
-  }
-
-  // Remove from DOM
-  record.element.remove();
-
-  // Remove from list
-  generatedWaveforms = generatedWaveforms.filter(w => w !== record);
-
-  updateDatasetSelector();
-  updateExpressionPreview();
-  updateVisibleData(chart);
 }
 
 function buildExpression() {
@@ -567,12 +621,12 @@ async function createDerivedWaveform(datasetIndex, expr) {
       borderWidth: 2,
       tension: 0.2,
       pointRadius: 0,
+      yAxisID: 'y',
     });
 
-    const newIndex = datasets.length - 1;
-    addWaveformEntry(name, newIndex)
-
     updateDatasetSelector();
+    rebuildSignalList();
+    updateY1AxisVisibility();
     updateVisibleData(chart);
   } finally {
     setLoadingState(false, 'Complete!');
@@ -583,6 +637,34 @@ window.addEventListener('DOMContentLoaded', async () => {
   const functions = await window.api.GetFunctions();
 
   const select = document.getElementById('functionSelect');
+  const sidebar = document.getElementById('sidebar');
+  const resizeHandle = document.getElementById('sidebarResizeHandle');
+
+  resizeHandle.addEventListener('mousedown', e => {
+    resizingSidebar = true;
+    document.body.classList.add('resizing');
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!resizingSidebar) {
+      return;
+    }
+    if ((e.buttons & 1) === 0) {
+      resizingSidebar = false;
+      document.body.classList.remove('resizing');
+      return;
+    }
+    const left = sidebar.parentElement.getBoundingClientRect().left;
+    const width = Math.max(150, Math.min(800, e.clientX - left));
+
+    sidebar.style.width = `${width}px`;
+  });
+
+  window.addEventListener('mouseup', () => {
+    resizingSidebar = false;
+    document.body.classList.remove('resizing');
+  });
+
   select.innerHTML = '';
 
   functions.forEach(f => {
@@ -637,6 +719,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('resetNames').onclick = () => {
     updateFileIndices();
+    rebuildSignalList();
   };
 
   updateExpressionPreview();

@@ -26,30 +26,34 @@
     </div>
 
     <div class="section-divider"></div>
-    <div class="section-title">Rename Signals</div>
+
+    <div class="section-title">Signals</div>
+
     <div class="control-group">
       <input id="nameRegex" placeholder="Capture regex" />
-
       <div class="inline-controls">
           <button id="applyRegex" class="btn secondary"> Apply </button>
           <button id="resetNames" class="btn secondary"> Reset </button>
       </div>
     </div>
+
+    <div class="control-group">
+      <div id="signalList"></div>
+    </div>
+    
     <div class="section-divider"></div>
+
     <div class="section-title">Waveform Builder</div>
 
     <div class="control-group">
-    <select id="datasetSelect"></select>
-    <select id="functionSelect"></select>
-    <input id="functionParam" placeholder="Function Arguments" />
-    <div class="preview-label">Expression Preview</div>
-    <div id="expressionPreview" class="expression-preview"><span class="expr-label">fx</span></div>
-    <div class="inline-controls">
-      <button id="addWaveform" class="btn secondary">Add</button>
-    </div>
-    <div class="section-divider"></div>
-    <div class="section-title">Waveforms</div>
-    <div id="waveformList"></div>
+      <select id="datasetSelect"></select>
+      <select id="functionSelect"></select>
+      <input id="functionParam" placeholder="Function Arguments" />
+      <div class="preview-label">Expression Preview</div>
+      <div id="expressionPreview" class="expression-preview"><span class="expr-label">fx</span></div>
+      <div class="inline-controls">
+        <button id="addWaveform" class="btn secondary">Add</button>
+      </div>
     </div>
 
     <div class="section-divider"></div>
@@ -78,19 +82,17 @@
     <div class="section-divider"></div>
 
     <div class="app-version">
-      v1.6.0
+      v1.7.0
     </div>
 
   </div>
+
+  <div id="sidebarResizeHandle"></div>
 
   <!-- MAIN -->
   <div class="main">
 
     <div class="card chart-card">
-      <div class="chart-header">
-        <div class="chart-title">CSV Data</div>
-      </div>
-
       <div class="chart-wrapper">
         <canvas id="chart"></canvas>
       </div>
