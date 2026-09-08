@@ -14,7 +14,7 @@
 <div class="app layout">
 
   <!-- SIDEBAR -->
-  <div class="sidebar">
+  <div id="sidebar" class="sidebar">
 
     <div class="section-title">Files</div>
 
@@ -25,6 +25,16 @@
       <div id="fileList"></div>
     </div>
 
+    <div class="section-divider"></div>
+    <div class="section-title">Rename Signals</div>
+    <div class="control-group">
+      <input id="nameRegex" placeholder="Capture regex" />
+
+      <div class="inline-controls">
+          <button id="applyRegex" class="btn secondary"> Apply </button>
+          <button id="resetNames" class="btn secondary"> Reset </button>
+      </div>
+    </div>
     <div class="section-divider"></div>
     <div class="section-title">Waveform Builder</div>
 

@@ -118,13 +118,17 @@ const chart = new Chart(ctx, {
     parsing: false,
     interaction: {
       intersect: false,
-      mode: 'index',
+      mode: 'nearest',
     },
 
     plugins: {
       legend: {
+        position: 'right',
+        maxWidth: 250,
         labels: {
           color: '#e5e7eb',
+          boxWidth: 12,
+          padding: 8,
         },
       },
       zoom: {
@@ -161,11 +165,13 @@ const chart = new Chart(ctx, {
       x: {
         grid: {color: 'rgba(255,255,255,0.05)'},
         ticks: {color: '#94a3b8'},
-        type: 'linear'
+        type: 'linear',
+        bounds: 'data',
       },
       y: {
         grid: {color: 'rgba(255,255,255,0.05)'},
         ticks: {color: '#94a3b8'},
+        bounds: 'data',
       },
     },
   },
@@ -378,6 +384,28 @@ function removeFile(fileRecord) {
   chart.data.datasets = datasets;
 
   updateFileIndices();
+}
+
+function applyRegexRename(pattern) {
+  let regex;
+
+  try {
+    regex = new RegExp(pattern);
+  } catch (err) {
+    alert(`Invalid regex: ${err.message}`);
+    return;
+  }
+
+  datasets.forEach(ds => {
+    const match = ds.rawHeader.match(regex);
+
+    if (match?.[1]) {
+      ds.label = match[1];
+    }
+  });
+
+  updateDatasetSelector();
+  chart.update();
 }
 
 function addWaveformEntry(name, datasetIndex) {
@@ -600,6 +628,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     const expr = buildExpression();
 
     createDerivedWaveform(datasetIndex, expr);
+  };
+
+  document.getElementById('applyRegex').onclick = () => {
+    const pattern = document.getElementById('nameRegex').value;
+    applyRegexRename(pattern);
+  };
+
+  document.getElementById('resetNames').onclick = () => {
+    updateFileIndices();
   };
 
   updateExpressionPreview();
