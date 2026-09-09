@@ -1,105 +1,27 @@
 import {ChartManager} from './util/chartManager.js';
 import {CsvLoader} from './util/csvLoader.js';
 import {FileManager} from './util/fileManager.js';
+import {SignalListView} from './util/signalListView.js';
 import {SignalManager} from './util/signalManager.js';
 
 const signalManager = new SignalManager();
 const fileManager = new FileManager(signalManager);
 const csvLoader = new CsvLoader(window.api);
 let chartManager = null;
+let signalListView = null;
 let resizingSidebar = false;
+
 
 function refreshUi() {
   chartManager.synchronise();
 }
 
 function refreshFileLabels() {
-  fileManager.updateLabels();
   fileManager.files.forEach(file => {
     const fileName = file.path.split(/[\\/]/).pop();
     file.element.querySelector('.file-path').innerText =
         `[${file.index}] ${fileName}`;
   });
-}
-
-function rebuildSignalList() {
-  const signalList = document.getElementById('signalList');
-
-  signalList.innerHTML = '';
-
-  signalManager.visualItems().forEach((item, visualIndex) => {
-    const datasetIndex = item.index;
-    const ds = item.signal.dataset;
-    const row = document.createElement('div');
-    row.className = 'signal-entry';
-    row.dataset.index = datasetIndex;
-
-    const handle = document.createElement('div');
-    handle.className = 'signal-handle';
-    handle.innerText = '☰';
-
-    row.appendChild(handle);
-
-    const colour = document.createElement('div');
-    colour.className = 'signal-colour';
-    colour.style.background = ds.borderColor;
-
-    const name = document.createElement('div');
-    name.className = 'signal-name';
-    name.innerText = ds.label;
-
-    const axis = document.createElement('div');
-    axis.className = 'axis-toggle';
-
-    axis.innerText = ds.yAxisID === 'y1' ? 'R' : 'L';
-
-    updateAxisButtonColour(axis, ds);
-
-    axis.onclick = () => {
-      ds.yAxisID = ds.yAxisID === 'y' ? 'y1' : 'y';
-      rebuildSignalList();
-      refreshUi();
-    };
-
-    const removeBtn = document.createElement('div');
-    removeBtn.className = 'file-remove';
-    removeBtn.innerText = '✕';
-    removeBtn.onclick = () => {
-      const fileRecord = fileManager.removeSignal(datasetIndex);
-
-      if (fileRecord && fileRecord.count === 0) {
-        fileRecord.element.remove();
-      }
-
-      refreshFileLabels();
-      rebuildSignalList();
-      refreshUi();
-    };
-
-    colour.onclick = () => {
-      const visible = chartManager.isDatasetVisible(datasetIndex);
-      chartManager.setDatasetVisibility(datasetIndex, !visible);
-      colour.style.opacity = visible ? '0.25' : '1';
-    };
-
-    row.appendChild(colour);
-    row.appendChild(name);
-    row.appendChild(axis);
-    row.appendChild(removeBtn);
-
-    signalList.appendChild(row);
-  });
-}
-
-function updateAxisButtonColour(button, dataset) {
-  if (dataset.yAxisID === 'y1') {
-    button.style.color = '#f59e0b';
-    button.style.background = 'rgba(245,158,11,0.15)';
-
-  } else {
-    button.style.color = '#60a5fa';
-    button.style.background = 'rgba(59,130,246,0.15)';
-  }
 }
 
 // Sets loading state
@@ -163,20 +85,15 @@ function addLoadedFile(file) {
   const fileRecord = fileManager.addFile(file.path, buffers.length);
   fileRecord.element = entry;
 
-  removeBtn.onclick = () => removeFile(fileRecord);
+  removeBtn.onclick = () => {
+    fileManager.removeFile(fileRecord);
+    refreshFileLabels();
+    signalListView.rebuild();
+    refreshUi();
+  };
 
   refreshFileLabels();
-  rebuildSignalList();
-  refreshUi();
-}
-
-// Helper function to remove a file
-function removeFile(fileRecord) {
-  fileManager.removeFile(fileRecord);
-  fileRecord.element.remove();
-
-  refreshFileLabels();
-  rebuildSignalList();
+  signalListView.rebuild();
   refreshUi();
 }
 
@@ -190,27 +107,31 @@ function applyRegexRename(pattern) {
     return;
   }
 
-  signalManager.datasets.forEach(ds => {
-    const match = ds.rawHeader.match(regex);
+  signalManager.datasets.forEach((ds, index) => {
+    const match = ds.label.match(regex);
 
     if (match?.[1]) {
       ds.label = match[1];
     }
   });
 
-  rebuildSignalList();
+  signalListView.rebuild();
   refreshUi();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
   chartManager =
       new ChartManager(document.getElementById('chart'), signalManager);
+
   const sidebar = document.getElementById('sidebar');
   const resizeHandle = document.getElementById('sidebarResizeHandle');
+  const dataList = document.getElementById('dataList');
+
+  signalListView =
+      new SignalListView(dataList, signalManager, fileManager, chartManager);
 
   // Sortable list
-  const signalList = document.getElementById('signalList');
-  Sortable.create(signalList, {
+  Sortable.create(dataList, {
     animation: 150,
     handle: '.signal-handle',
     ghostClass: 'signal-drag-ghost',
@@ -289,7 +210,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   };
 
   document.getElementById('resetNames').onclick = () => {
-    rebuildSignalList();
+    signalManager.datasets.forEach(ds => {
+      ds.label = ds.rawHeader;
+    });
+    signalListView.rebuild();
+    refreshUi();
   };
 });
 

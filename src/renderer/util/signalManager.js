@@ -1,9 +1,9 @@
+// Class used to store signal data (meta and raw)
 export class Signal {
   constructor(header, buffer, colour) {
     this.buffer = buffer;
-
     this.dataset = {
-      label: '',
+      label: header,
       rawHeader: header,
       data: buffer.map((y, x) => ({x, y})),
       borderColor: colour,
@@ -15,7 +15,7 @@ export class Signal {
   }
 }
 
-
+// Class used to manage set of signals
 export class SignalManager {
   constructor() {
     this.signals = [];
@@ -27,6 +27,7 @@ export class SignalManager {
     return this.signals.length;
   }
 
+  // Adds a new signal for the manager.
   addSignal(header, buffer, colour) {
     const signal = new Signal(header, buffer, colour);
     signal.dataset.order = this.count;
@@ -35,6 +36,7 @@ export class SignalManager {
     this.order.push(this.count - 1);
   }
 
+  // removes signal from manager according to its index in the local array
   removeSignal(index) {
     this.order = this.order.filter(i => i !== index);
     this.order = this.order.map(i => i > index ? i - 1 : i);
@@ -42,6 +44,8 @@ export class SignalManager {
     this.datasets.splice(index, 1);
   }
 
+  // moves the signal inside the local array (uses order array for lookup and
+  // tracking)
   moveSignal(fromVisualIndex, toVisualIndex) {
     const moved = this.order.splice(fromVisualIndex, 1)[0];
     this.order.splice(toVisualIndex, 0, moved);
@@ -50,6 +54,7 @@ export class SignalManager {
     });
   }
 
+  // removes group of signals
   removeRange(start, count) {
     this.order =
         this.order.filter(index => index < start || index >= start + count);
@@ -58,18 +63,23 @@ export class SignalManager {
     this.datasets.splice(start, count);
   }
 
+  // Gets specific signal by index
   getSignal(index) {
     return this.signals[index];
   }
 
+  // Gets specific dataset by index
   getDataset(index) {
     return this.datasets[index];
   }
 
+  // Gets specific rawbuffer by index
   getBuffer(index) {
     return this.signals[index]?.buffer;
   }
 
+  // Gets visual items based on their order (array of indexes used for
+  // presentation order)
   visualItems() {
     return this.order.map(index => ({index, signal: this.signals[index]}));
   }

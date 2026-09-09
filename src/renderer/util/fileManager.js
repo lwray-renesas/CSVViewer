@@ -20,8 +20,13 @@ export class FileManager {
   }
 
   removeFile(fileRecord) {
+    // Remove signals associated with file from signal manager
     this.signalManager.removeRange(fileRecord.startIndex, fileRecord.count);
+    // Destroy the HTML
+    fileRecord.element?.remove();
+    // Remove from internl storage.
     this.files = this.files.filter(f => f !== fileRecord);
+    // reindex files.
     this.reindex();
   }
 
@@ -54,18 +59,6 @@ export class FileManager {
       file.startIndex = currentIndex;
 
       currentIndex += file.count;
-    });
-  }
-
-  updateLabels() {
-    this.files.forEach(file => {
-      for (let i = 0; i < file.count; i++) {
-        const datasetIndex = file.startIndex + i;
-
-        const dataset = this.signalManager.datasets[datasetIndex];
-
-        dataset.label = `[${file.index}] ${dataset.rawHeader}`;
-      }
     });
   }
 }

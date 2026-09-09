@@ -38,7 +38,7 @@
     </div>
 
     <div class="control-group">
-      <div id="signalList"></div>
+      <div id="dataList"></div>
     </div>
 
     <div class="section-divider"></div>
@@ -104,4 +104,15 @@
 <script type="module" src="renderer.js"></script>
 
 </body>
+
+<template id="signalRowTemplate">
+  <div class="signal-entry">
+    <div class="signal-handle">☰</div>
+    <div class="signal-colour"></div>
+    <div class="signal-name"></div>
+    <div class="axis-toggle"></div>
+    <div class="file-remove">✕</div>
+  </div>
+</template>
+
 </html>
