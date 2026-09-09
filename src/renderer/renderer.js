@@ -179,7 +179,11 @@ window.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    setLoadingState(true, 'Opening Files...');
+
     const file = await window.api.OpenCsvFiles();
+
+    setLoadingState(false);
 
     if (!file) {
       return;
