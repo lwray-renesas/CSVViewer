@@ -40,21 +40,6 @@
     <div class="control-group">
       <div id="signalList"></div>
     </div>
-    
-    <div class="section-divider"></div>
-
-    <div class="section-title">Waveform Builder</div>
-
-    <div class="control-group">
-      <select id="datasetSelect"></select>
-      <select id="functionSelect"></select>
-      <input id="functionParam" placeholder="Function Arguments" />
-      <div class="preview-label">Expression Preview</div>
-      <div id="expressionPreview" class="expression-preview"><span class="expr-label">fx</span></div>
-      <div class="inline-controls">
-        <button id="addWaveform" class="btn secondary">Add</button>
-      </div>
-    </div>
 
     <div class="section-divider"></div>
 
@@ -82,7 +67,7 @@
     <div class="section-divider"></div>
 
     <div class="app-version">
-      v1.7.1
+      v1.0.0
     </div>
 
   </div>
@@ -115,7 +100,7 @@
 <script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
 <script src="../../node_modules/hammerjs/hammer.min.js"></script>
 <script src="../../node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
-<script src="renderer.js"></script>
+<script type="module" src="renderer.js"></script>
 
 </body>
 </html>

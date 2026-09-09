@@ -47,10 +47,6 @@ For another useful tool which allows streaming of CSV binary encoded data check 
 - ✅ Zoom box selection
 - ✅ Reset view (double-click or key press)
 - ✅ File-based dataset grouping
-- ✅ Derived waveform generation (scale, filter, clip, etc.)
-- ✅ Expression-based transformations
-- ✅ Inline expression preview
-- ✅ Remove generated waveforms independently
 
 
 ---
@@ -103,74 +99,9 @@ Alternatively you can just pick the installer from the release page and run the 
 
 ---
 
-## Using the tool
-- Click the "+" button in the sidebar
-- Select one or more CSV files
-- Files will appear in the sidebar and be plotted automatically
-- Click ✕ to remove a file and its datasets
-- Hover over a file to see its full path
-
-Each file is assigned an index:
-```
-[1] file1.csv
-[2] file2.csv
-```
-Datasets in the chart correspond to these indices.
-
-An example of typical usage is shown in the image below.
-
-![Using the Tool](img/UsingTheTool.gif "Using the Tool")
----
-
-## Waveform Builder
-
-The Waveform Builder allows you to generate new datasets (waveforms) by applying mathematical operations to existing signals.
-An example of typical usage is shown in the image below.
-
-![Waveform Builder](img/WaveformBuilder.gif "Waveform Builder")
-
-### Creating a derived waveform
-
-1. Select a source dataset from the dropdown
-2. Select a transformation function
-3. Enter the required parameters
-4. Click **Add**
-
-A preview of the operation is shown before applying it, for example:
-```
-lpf(Voltage, 0.1)
-```
-This makes it clear what signal is being operated on and how.
-
-### Supported operations
-
-| Function        | Parameters        | Description |
-|----------------|------------------|-------------|
-| `lpf`          | `coeff`          | Applies a low-pass filter using an exponential moving average.<br>Lower values produce heavier smoothing.<br>Coefficient must be between `0` and `1`. |
-| `hpf`          | `coeff`          | Applies a high-pass filter to remove low-frequency components.<br>Coefficient must be between `0` and `1`. |
-| `medfilter`    | `window`         | Applies a median filter over a sliding window.<br>Useful for removing spikes and impulse noise.<br>Window must be a positive integer. |
-| `sma`          | `window`         | Computes a simple moving average over a sliding window.<br>Smooths short-term fluctuations.<br>Window must be a positive integer. |
-| `rms`          | `window`         | Computes the root-mean-square over a sliding window.<br>Useful for analysing signal energy or envelope.<br>Window must be a positive integer. |
-| `diff`         | *(none)*         | Computes the first-order difference between consecutive samples.<br>Useful for detecting rate of change. |
-| `scale`        | `factor`         | Multiplies all values in the dataset by a constant factor.<br>Useful for scaling or unit conversion. |
-| `offset`       | `offset`         | Adds a constant value to all dataset entries.<br>Useful for baseline shifting. |
-| `clip`         | `min, max`       | Limits values to a specified range.<br>Values below `min` are raised, values above `max` are reduced.<br>`min` must be less than `max`. |
-| `abs`          | *(none)*         | Converts all values to their absolute magnitude.<br>Useful for rectification. |
-| `norm`         | *(none)*         | Normalises values to the range `0 → 1` using the dataset’s minimum and maximum values. |
-
-
-### Generated waveforms
-
-- Newly created waveforms are added to the chart
-- They are listed in the **Waveforms** section of the sidebar
-- Each waveform can be removed independently using ✕
-
----
-
 ## Data Handling
 When parsing the CSV file the following applies:
 - The first row is used as column headers
-- Headers starting with # are cleaned automatically
 - All rows before valid numeric data are ignored
 - Non-numeric values are skipped or shown as gaps
 

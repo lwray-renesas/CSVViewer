@@ -1,124 +1,20 @@
 let loadedFiles = [];
-const datasets = [];
-const dataBuffers = [];
+import {SignalManager} from './signalManager.js';
+import {ChartManager} from './chartManager.js';
+const signalManager = new SignalManager();
+let chartManager = null;
 
 let csvLoading = false;
 let csvHeaders = null;
 let csvBuffers = [];
 let csvPath = '';
 let headerSeen = false;
-let updatePending = false;
 let resizingSidebar = false;
+let draggedDatasetIndex = -1;
 
-
-function decimateMinMax(buffer, start, end, targetPoints) {
-  const range = end - start;
-
-  if (range <= targetPoints) {
-    const data = [];
-
-    for (let x = start; x < end; x++) {
-      data.push({x, y: buffer[x]});
-    }
-
-    return data;
-  }
-
-  const bucketSize = range / targetPoints;
-  const data = [];
-
-  for (let bucket = 0; bucket < targetPoints; bucket++) {
-    const bucketStart = Math.floor(start + bucket * bucketSize);
-
-    const bucketEnd =
-        Math.min(Math.floor(start + (bucket + 1) * bucketSize), end);
-
-    let minY = Infinity;
-    let maxY = -Infinity;
-    let minX = bucketStart;
-    let maxX = bucketStart;
-
-    for (let x = bucketStart; x < bucketEnd; x++) {
-      const y = buffer[x];
-
-      if (y == null) {
-        continue;
-      }
-
-      if (y < minY) {
-        minY = y;
-        minX = x;
-      }
-
-      if (y > maxY) {
-        maxY = y;
-        maxX = x;
-      }
-    }
-
-    if (minY !== Infinity) {
-      if (minX < maxX) {
-        data.push({x: minX, y: minY});
-        data.push({x: maxX, y: maxY});
-      } else {
-        data.push({x: maxX, y: maxY});
-        data.push({x: minX, y: minY});
-      }
-    }
-  }
-
-  return data;
-}
-
-function rebuildFullData(chart) {
-  chart.data.datasets.forEach((dataset, index) => {
-    const buffer = dataBuffers[index];
-
-    dataset.data = buffer.map((y, x) => ({x, y}));
-  });
-
-  chart.update('none');
-}
-
-
-function updateVisibleData(chart) {
-  const start = Math.max(0, Math.floor(chart.scales.x.min ?? 0));
-  const end = Math.ceil(chart.scales.x.max ?? dataBuffers[0].length);
-  const targetPoints = chart.width;
-  chart.data.datasets.forEach((dataset, index) => {
-    dataset.data = decimateMinMax(dataBuffers[index], start, end, targetPoints);
-  });
-
-  chart.update('none');
-}
-
-function scheduleUpdate(chart) {
-  if (updatePending) return;
-
-  updatePending = true;
-
-  requestAnimationFrame(() => {
-    updatePending = false;
-    updateVisibleData(chart);
-  });
-}
-
-function updateY1AxisVisibility() {
-  const hasSecondaryAxis = datasets.some(ds => ds.yAxisID === 'y1');
-  chart.options.scales.y1.display = hasSecondaryAxis;
-  chart.update();
-}
-
-function removeDataset(index) {
-  datasets.splice(index, 1);
-  dataBuffers.splice(index, 1);
-
-  chart.data.datasets = datasets;
-
+function refreshUi() {
   rebuildSignalList();
-  updateDatasetSelector();
-  updateY1AxisVisibility();
-  updateVisibleData(chart);
+  chartManager.synchronise();
 }
 
 function rebuildSignalList() {
@@ -126,9 +22,38 @@ function rebuildSignalList() {
 
   signalList.innerHTML = '';
 
-  datasets.forEach((ds, index) => {
+  signalManager.visualItems().forEach((item, visualIndex) => {
+    const datasetIndex = item.index;
+    const ds = item.signal.dataset;
     const row = document.createElement('div');
     row.className = 'signal-entry';
+    row.draggable = true;
+    row.dataset.index = datasetIndex;
+
+    row.addEventListener('dragstart', () => {
+      draggedDatasetIndex = visualIndex;
+    });
+
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+    });
+
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      setLoadingState(true, 'Reordering Signals...');
+      requestAnimationFrame(() => {
+        signalManager.moveSignal(draggedDatasetIndex, visualIndex);
+        refreshUi();
+        setLoadingState(false);
+      });
+    });
+
+    const handle = document.createElement('div');
+    handle.innerText = '☰';
+    handle.style.cursor = 'grab';
+    handle.style.color = '#94a3b8';
+
+    row.appendChild(handle);
 
     const colour = document.createElement('div');
     colour.className = 'signal-colour';
@@ -147,11 +72,7 @@ function rebuildSignalList() {
 
     axis.onclick = () => {
       ds.yAxisID = ds.yAxisID === 'y' ? 'y1' : 'y';
-
-      axis.innerText = ds.yAxisID === 'y1' ? 'R' : 'L';
-
-      updateAxisButtonColour(axis, ds);
-      updateY1AxisVisibility();
+      refreshUi();
     };
 
     const removeBtn = document.createElement('div');
@@ -159,18 +80,14 @@ function rebuildSignalList() {
     removeBtn.innerText = '✕';
 
     removeBtn.onclick = () => {
-      removeDataset(index);
+      signalManager.removeSignal(datasetIndex);
+      refreshUi();
     };
 
-
     colour.onclick = () => {
-      const visible = chart.isDatasetVisible(index);
-
-      chart.setDatasetVisibility(index, !visible);
-
+      const visible = chartManager.isDatasetVisible(datasetIndex);
+      chartManager.setDatasetVisibility(datasetIndex, !visible);
       colour.style.opacity = visible ? '0.25' : '1';
-
-      chart.update();
     };
 
     row.appendChild(colour);
@@ -192,81 +109,6 @@ function updateAxisButtonColour(button, dataset) {
     button.style.background = 'rgba(59,130,246,0.15)';
   }
 }
-
-const ctx = document.getElementById('chart').getContext('2d');
-
-const chart = new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [],
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: false,
-    parsing: false,
-    interaction: {
-      intersect: false,
-      mode: 'nearest',
-    },
-
-    plugins: {
-      legend: {
-        display: false,
-      },
-      zoom: {
-        pan: {
-          enabled: true,
-          mode: 'xy',
-          onPan({chart}) {
-            scheduleUpdate(chart);
-          },
-        },
-        zoom: {
-          wheel: {
-            enabled: true,  // mouse wheel zoom
-          },
-          pinch: {
-            enabled: true,  // trackpad pinch
-          },
-          drag: {
-            enabled: true,
-            modifierKey: 'ctrl',
-            backgroundColor: 'rgba(59,130,246,0.2)',
-            borderColor: '#3b82f6',
-            borderWidth: 1,
-          },
-          mode: 'xy',
-          onZoom({chart}) {
-            scheduleUpdate(chart);
-          },
-        }
-      }
-    },
-
-    scales: {
-      x: {
-        grid: {color: 'rgba(255,255,255,0.05)'},
-        ticks: {color: '#94a3b8'},
-        type: 'linear',
-        bounds: 'data',
-      },
-      y: {
-        grid: {color: 'rgba(255,255,255,0.05)'},
-        ticks: {color: '#94a3b8'},
-        bounds: 'data',
-      },
-      y1: {
-        display: false,
-        position: 'right',
-        grid: {drawOnChartArea: false},
-        ticks: {color: '#f59e0b'},
-        bounds: 'data'
-      },
-    },
-  },
-});
 
 function finishCsvLoad() {
   const buffers = csvBuffers;
@@ -355,7 +197,7 @@ function setLoadingState(loading, text = '') {
     overlay.classList.add('hidden');
   }
 
-  document.querySelectorAll('button,select,input').forEach(el => {
+  document.querySelectorAll('button,input').forEach(el => {
     el.disabled = loading;
   });
 }
@@ -383,14 +225,10 @@ function updateFileIndices() {
     // Update dataset labels
     for (let i = 0; i < fileRecord.count; i++) {
       const datasetIndex = fileRecord.startIndex + i;
-      const header = datasets[datasetIndex].rawHeader;
-      datasets[datasetIndex].label = `[${newIndex}] ${header}`;
+      const header = signalManager.datasets[datasetIndex].rawHeader;
+      signalManager.datasets[datasetIndex].label = `[${newIndex}] ${header}`;
     }
   });
-
-  updateDatasetSelector();
-  updateExpressionPreview();
-  chart.update();
 }
 
 // Helper function to add data to plot from file
@@ -415,7 +253,7 @@ function addLoadedFile(file) {
   const headers = file.headers;
   const buffers = file.buffers;
 
-  const datasetStartIndex = datasets.length;
+  const datasetStartIndex = signalManager.count;
 
   buffers.forEach((buffer, i) => {
     const numericBuffer = buffer.map(v => {
@@ -423,22 +261,9 @@ function addLoadedFile(file) {
       return Number.isNaN(n) ? null : n;
     });
 
-    dataBuffers.push(numericBuffer);
-
-    datasets.push({
-      label: '',              // set later by index updater
-      rawHeader: headers[i],  // store clean header
-      data: numericBuffer.map((y, x) => ({x, y})),
-      borderColor: getColour(datasets.length),
-      borderWidth: 2,
-      pointRadius: 0,
-      yAxisID: 'y',
-    });
+    signalManager.addSignal(
+        headers[i], numericBuffer, getColour(signalManager.count));
   });
-
-  chart.data.datasets = datasets;
-  chart.update();
-  updateVisibleData(chart);
 
   const fileRecord = {
     path: file.path,
@@ -452,15 +277,13 @@ function addLoadedFile(file) {
   removeBtn.onclick = () => removeFile(fileRecord);
 
   updateFileIndices();
-  rebuildSignalList();
-  updateY1AxisVisibility();
+  refreshUi();
 }
 
 // Helper function to remove a file
 function removeFile(fileRecord) {
-  // Remove datasets + buffers
-  datasets.splice(fileRecord.startIndex, fileRecord.count);
-  dataBuffers.splice(fileRecord.startIndex, fileRecord.count);
+  // Remove file signals
+  signalManager.removeRange(fileRecord.startIndex, fileRecord.count);
 
   // Remove DOM element
   fileRecord.element.remove();
@@ -475,11 +298,8 @@ function removeFile(fileRecord) {
     currentIndex += f.count;
   });
 
-  chart.data.datasets = datasets;
-
   updateFileIndices();
-  rebuildSignalList();
-  updateY1AxisVisibility();
+  refreshUi();
 }
 
 function applyRegexRename(pattern) {
@@ -492,7 +312,7 @@ function applyRegexRename(pattern) {
     return;
   }
 
-  datasets.forEach(ds => {
+  signalManager.datasets.forEach(ds => {
     const match = ds.rawHeader.match(regex);
 
     if (match?.[1]) {
@@ -500,143 +320,12 @@ function applyRegexRename(pattern) {
     }
   });
 
-  updateDatasetSelector();
-  rebuildSignalList();
-  chart.update();
-}
-
-function buildExpression() {
-  const fn = document.getElementById('functionSelect').value;
-  const param = document.getElementById('functionParam').value.trim();
-
-  return `${fn}(${param})`;
-}
-
-function updateDatasetSelector() {
-  const select = document.getElementById('datasetSelect');
-  if (!select) return;
-
-  const previousValue = select.value;
-  select.innerHTML = '';
-
-  datasets.forEach((ds, i) => {
-    const option = document.createElement('option');
-    option.value = i;
-    option.text = ds.label;
-    select.appendChild(option);
-  });
-
-  if (previousValue !== '' && datasets[previousValue]) {
-    select.value = previousValue;
-  } else if (datasets.length > 0) {
-    // fallback to first entry
-    select.value = 0;
-  }
-}
-
-function updateExpressionPreview() {
-  const expr = buildExpression();
-  const preview = document.getElementById('expressionPreview');
-  const datasetSelect = document.getElementById('datasetSelect');
-
-  // Reset styles
-  preview.style.borderColor = '';
-  preview.style.background = '';
-
-  if (!expr) {
-    preview.innerHTML = `<span class="expr-label">fx</span>`;
-    preview.classList.remove('active');
-    return;
-  }
-
-  const datasetIndex = parseInt(datasetSelect.value, 10);
-  const sourceDataset = datasets[datasetIndex];
-
-  if (!sourceDataset) {
-    preview.innerHTML = `<span class="expr-label">fx</span>`;
-    preview.classList.remove('active');
-    return;
-  }
-
-  const inputName = sourceDataset.rawHeader;
-
-  // Inject as FIRST argument
-  const parsed = expr.match(/^(\w+)\((.*)\)$/);
-
-  let displayExpr = expr;
-
-  if (parsed) {
-    const fn = parsed[1];
-    const args = parsed[2];
-
-    displayExpr = args ? `${fn}(${inputName}, ${args})` : `${fn}(${inputName})`;
-  }
-
-  preview.innerHTML = `<span class="expr-label">fx</span> ` +
-      `<span class="expr-fn"> = ${parsed ? parsed[1] : ''}</span>` +
-      `(` +
-      `<span class="expr-input">${inputName}</span>` +
-      (parsed && parsed[2] ? `, ${parsed[2]}` : '') + `)`;
-
-  preview.classList.add('active');
-}
-
-function showExpressionError(message) {
-  const preview = document.getElementById('expressionPreview');
-
-  preview.innerHTML = `<span class="expr-label">error</span> ${message}`;
-  preview.classList.add('active');
-
-  // make it red
-  preview.style.borderColor = '#ef4444';
-  preview.style.background = 'rgba(239,68,68,0.1)';
-}
-
-async function createDerivedWaveform(datasetIndex, expr) {
-  const sourceData = dataBuffers[datasetIndex];
-
-  if (!sourceData) {
-    showExpressionError('Invalid Dataset Selected!');
-    return;
-  }
-
-  try {
-    setLoadingState(true, 'Generating Waveform...');
-
-    const response = await window.api.GenerateWaveform(sourceData, expr);
-    if (!response.success) {
-      showExpressionError(response.error);
-      return;
-    }
-
-    dataBuffers.push(response.result);
-
-    const name = `${datasets[datasetIndex].label}_${expr}`;
-
-    datasets.push({
-      label: name,
-      rawHeader: name,
-      data: response.result.map((y, x) => ({x, y})),
-      borderColor: getColour(datasets.length),
-      borderWidth: 2,
-      tension: 0.2,
-      pointRadius: 0,
-      yAxisID: 'y',
-    });
-
-    updateDatasetSelector();
-    rebuildSignalList();
-    updateY1AxisVisibility();
-    updateVisibleData(chart);
-  } finally {
-    setLoadingState(false, 'Complete!');
-  }
+  refreshUi();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  const functions = await window.api.GetFunctions();
-
-  const select = document.getElementById('functionSelect');
+  chartManager =
+      new ChartManager(document.getElementById('chart'), signalManager);
   const sidebar = document.getElementById('sidebar');
   const resizeHandle = document.getElementById('sidebarResizeHandle');
 
@@ -665,15 +354,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.body.classList.remove('resizing');
   });
 
-  select.innerHTML = '';
-
-  functions.forEach(f => {
-    const option = document.createElement('option');
-    option.value = f.id;
-    option.text = `${f.name}`;
-    select.appendChild(option);
-  });
-
   // Add events listeners to UI
   document.getElementById('AddFile').onclick = async () => {
     if (csvLoading) {
@@ -686,31 +366,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     beginCsvLoad(file.path);
   };
 
-  ctx.canvas.addEventListener('dblclick', () => {
+  chartManager.getCanvas().addEventListener('dblclick', () => {
     setLoadingState(true, 'Resetting View...');
-
     setTimeout(() => {
-      rebuildFullData(chart);
-      chart.resetZoom();
-      updateVisibleData(chart);
+      chartManager.resetView();
       setLoadingState(false);
     }, 0);
   });
-
-  document.getElementById('datasetSelect').onchange = updateExpressionPreview;
-
-  document.getElementById('functionSelect').onchange = updateExpressionPreview;
-
-  document.getElementById('functionParam').oninput = updateExpressionPreview;
-
-  document.getElementById('addWaveform').onclick = () => {
-    const datasetIndex =
-        parseInt(document.getElementById('datasetSelect').value, 10);
-
-    const expr = buildExpression();
-
-    createDerivedWaveform(datasetIndex, expr);
-  };
 
   document.getElementById('applyRegex').onclick = () => {
     const pattern = document.getElementById('nameRegex').value;
@@ -721,8 +383,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateFileIndices();
     rebuildSignalList();
   };
-
-  updateExpressionPreview();
 });
 
 window.onload = () => {
