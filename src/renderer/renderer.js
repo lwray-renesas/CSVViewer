@@ -1,18 +1,25 @@
-import {ChartManager} from './chartManager.js';
-import {SignalManager} from './signalManager.js';
+import {ChartManager} from './util/chartManager.js';
+import {CsvLoader} from './util/csvLoader.js';
+import {FileManager} from './util/fileManager.js';
+import {SignalManager} from './util/signalManager.js';
 
 const signalManager = new SignalManager();
+const fileManager = new FileManager(signalManager);
+const csvLoader = new CsvLoader(window.api);
 let chartManager = null;
-let loadedFiles = [];
-let csvLoading = false;
-let csvHeaders = null;
-let csvBuffers = [];
-let csvPath = '';
-let headerSeen = false;
 let resizingSidebar = false;
 
 function refreshUi() {
   chartManager.synchronise();
+}
+
+function refreshFileLabels() {
+  fileManager.updateLabels();
+  fileManager.files.forEach(file => {
+    const fileName = file.path.split(/[\\/]/).pop();
+    file.element.querySelector('.file-path').innerText =
+        `[${file.index}] ${fileName}`;
+  });
 }
 
 function rebuildSignalList() {
@@ -57,28 +64,14 @@ function rebuildSignalList() {
     const removeBtn = document.createElement('div');
     removeBtn.className = 'file-remove';
     removeBtn.innerText = '✕';
-
     removeBtn.onclick = () => {
-      const fileRecord = loadedFiles.find(
-          file => datasetIndex >= file.startIndex &&
-              datasetIndex < file.startIndex + file.count);
+      const fileRecord = fileManager.removeSignal(datasetIndex);
 
-      signalManager.removeSignal(datasetIndex);
-
-      if (fileRecord) {
-        fileRecord.count--;
-        if (fileRecord.count === 0) {
-          removeFile(fileRecord);
-          return;
-        }
+      if (fileRecord && fileRecord.count === 0) {
+        fileRecord.element.remove();
       }
-      // Rebuild file start indices
-      let currentIndex = 0;
-      loadedFiles.forEach(file => {
-        file.startIndex = currentIndex;
-        currentIndex += file.count;
-      });
-      updateFileIndices();
+
+      refreshFileLabels();
       rebuildSignalList();
       refreshUi();
     };
@@ -109,80 +102,6 @@ function updateAxisButtonColour(button, dataset) {
   }
 }
 
-function finishCsvLoad() {
-  const buffers = csvBuffers;
-
-  const file = {
-    path: csvPath,
-    headers: csvHeaders,
-    buffers,
-  };
-  setLoadingState(false, 'Loading... 0%');
-  addLoadedFile(file);
-}
-
-function processCsvChunk(lines) {
-  for (const line of lines) {
-    const parts = line.split(',');
-
-    // Process header line differently
-    if (!headerSeen) {
-      csvHeaders = parts.map(h => h.replace(/^#+/, '').trim());
-      csvBuffers = csvHeaders.map(() => []);
-      headerSeen = true;
-      continue;
-    }
-
-    // Skip row if ANY field is empty OR NaN
-    let isInvalid = parts.some(v => {
-      const value = v.trim();
-      return value === '' || Number.isNaN(Number(value));
-    });
-
-    if (isInvalid) {
-      continue;
-    }
-
-    // Start storing data
-    parts.forEach((value, index) => {
-      const num = Number(value);
-      csvBuffers[index].push(Number.isNaN(num) ? null : num);
-    });
-  }
-}
-
-async function csvLoadLoop() {
-  if (!csvLoading) {
-    return;
-  }
-
-  const chunk = await window.api.GetCsvChunk();
-
-  setLoadingState(true, `Loading... ${chunk.progress.toFixed(0)}%`);
-
-  processCsvChunk(chunk.rows);
-
-  if (!chunk.done) {
-    requestAnimationFrame(csvLoadLoop);
-  } else {
-    csvLoading = false;
-    finishCsvLoad();
-  }
-}
-
-function beginCsvLoad(path) {
-  csvPath = path;
-  csvHeaders = null;
-  csvBuffers = [];
-  headerSeen = false;
-
-  csvLoading = true;
-
-  setLoadingState(true, 'Loading...0%');
-
-  requestAnimationFrame(csvLoadLoop);
-}
-
 // Sets loading state
 function setLoadingState(loading, text = '') {
   const overlay = document.getElementById('loadingOverlay');
@@ -209,27 +128,6 @@ function getColour(index) {
   return `hsl(${hue}, 70%, 55%)`;
 }
 
-// Helper to track file indices, when using multiple files we link data with
-// repeat names to a file index in the list in square brackets.
-function updateFileIndices() {
-  loadedFiles.forEach((fileRecord, fileIdx) => {
-    const newIndex = fileIdx + 1;
-    fileRecord.index = newIndex;
-
-    // Update sidebar label
-    const fileName = fileRecord.path.split(/[\\/]/).pop();
-    fileRecord.element.querySelector('.file-path').innerText =
-        `[${newIndex}] ${fileName}`;
-
-    // Update dataset labels
-    for (let i = 0; i < fileRecord.count; i++) {
-      const datasetIndex = fileRecord.startIndex + i;
-      const header = signalManager.datasets[datasetIndex].rawHeader;
-      signalManager.datasets[datasetIndex].label = `[${newIndex}] ${header}`;
-    }
-  });
-}
-
 // Helper function to add data to plot from file
 function addLoadedFile(file) {
   const fileList = document.getElementById('fileList');
@@ -252,8 +150,6 @@ function addLoadedFile(file) {
   const headers = file.headers;
   const buffers = file.buffers;
 
-  const datasetStartIndex = signalManager.count;
-
   buffers.forEach((buffer, i) => {
     const numericBuffer = buffer.map(v => {
       const n = Number(v);
@@ -264,41 +160,22 @@ function addLoadedFile(file) {
         headers[i], numericBuffer, getColour(signalManager.count));
   });
 
-  const fileRecord = {
-    path: file.path,
-    startIndex: datasetStartIndex,
-    count: buffers.length,
-    element: entry,
-    index: 0
-  };
+  const fileRecord = fileManager.addFile(file.path, buffers.length);
+  fileRecord.element = entry;
 
-  loadedFiles.push(fileRecord);
   removeBtn.onclick = () => removeFile(fileRecord);
 
-  updateFileIndices();
+  refreshFileLabels();
   rebuildSignalList();
   refreshUi();
 }
 
 // Helper function to remove a file
 function removeFile(fileRecord) {
-  // Remove file signals
-  signalManager.removeRange(fileRecord.startIndex, fileRecord.count);
-
-  // Remove DOM element
+  fileManager.removeFile(fileRecord);
   fileRecord.element.remove();
 
-  // Remove from list
-  loadedFiles = loadedFiles.filter(f => f !== fileRecord);
-
-  // Rebuild dataset indices
-  let currentIndex = 0;
-  loadedFiles.forEach(f => {
-    f.startIndex = currentIndex;
-    currentIndex += f.count;
-  });
-
-  updateFileIndices();
+  refreshFileLabels();
   rebuildSignalList();
   refreshUi();
 }
@@ -377,14 +254,25 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Add events listeners to UI
   document.getElementById('AddFile').onclick = async () => {
-    if (csvLoading) {
+    if (csvLoader.loading) {
       return;
     }
+
     const file = await window.api.OpenCsvFiles();
+
     if (!file) {
       return;
     }
-    beginCsvLoad(file.path);
+
+    csvLoader.begin(file.path);
+    setLoadingState(true, 'Loading... 0%');
+
+    const loadedFile = await csvLoader.load(progress => {
+      setLoadingState(true, `Loading... ${progress.toFixed(0)}%`);
+    });
+
+    setLoadingState(false);
+    addLoadedFile(loadedFile);
   };
 
   chartManager.getCanvas().addEventListener('dblclick', () => {
@@ -401,7 +289,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   };
 
   document.getElementById('resetNames').onclick = () => {
-    updateFileIndices();
     rebuildSignalList();
   };
 });
