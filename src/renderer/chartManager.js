@@ -67,6 +67,7 @@ export class ChartManager {
           },
 
           y: {
+            display: false,
             grid: {color: 'rgba(255,255,255,0.05)'},
             ticks: {color: '#94a3b8'},
             bounds: 'data',
@@ -93,8 +94,11 @@ export class ChartManager {
   // Effectively force refreshing the displayed data.
   synchronise() {
     // Only display the y1 axis if a set is using it.
-    const visible = this.signalManager.datasets.some(ds => ds.yAxisID === 'y1');
-    this.chart.options.scales.y1.display = visible;
+    this.chart.options.scales.y1.display =
+        this.signalManager.datasets.some(ds => ds.yAxisID === 'y1');
+    // Only display the y axis if a set is using it.
+    this.chart.options.scales.y.display =
+        this.signalManager.datasets.some(ds => ds.yAxisID === 'y');
 
     // Fully rebuild the data from the buffers
     this.rebuildBuffers();

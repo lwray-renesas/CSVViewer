@@ -1,19 +1,17 @@
-let loadedFiles = [];
-import {SignalManager} from './signalManager.js';
 import {ChartManager} from './chartManager.js';
+import {SignalManager} from './signalManager.js';
+
 const signalManager = new SignalManager();
 let chartManager = null;
-
+let loadedFiles = [];
 let csvLoading = false;
 let csvHeaders = null;
 let csvBuffers = [];
 let csvPath = '';
 let headerSeen = false;
 let resizingSidebar = false;
-let draggedDatasetIndex = -1;
 
 function refreshUi() {
-  rebuildSignalList();
   chartManager.synchronise();
 }
 
@@ -27,31 +25,11 @@ function rebuildSignalList() {
     const ds = item.signal.dataset;
     const row = document.createElement('div');
     row.className = 'signal-entry';
-    row.draggable = true;
     row.dataset.index = datasetIndex;
 
-    row.addEventListener('dragstart', () => {
-      draggedDatasetIndex = visualIndex;
-    });
-
-    row.addEventListener('dragover', e => {
-      e.preventDefault();
-    });
-
-    row.addEventListener('drop', e => {
-      e.preventDefault();
-      setLoadingState(true, 'Reordering Signals...');
-      requestAnimationFrame(() => {
-        signalManager.moveSignal(draggedDatasetIndex, visualIndex);
-        refreshUi();
-        setLoadingState(false);
-      });
-    });
-
     const handle = document.createElement('div');
+    handle.className = 'signal-handle';
     handle.innerText = '☰';
-    handle.style.cursor = 'grab';
-    handle.style.color = '#94a3b8';
 
     row.appendChild(handle);
 
@@ -72,6 +50,7 @@ function rebuildSignalList() {
 
     axis.onclick = () => {
       ds.yAxisID = ds.yAxisID === 'y' ? 'y1' : 'y';
+      rebuildSignalList();
       refreshUi();
     };
 
@@ -80,7 +59,27 @@ function rebuildSignalList() {
     removeBtn.innerText = '✕';
 
     removeBtn.onclick = () => {
+      const fileRecord = loadedFiles.find(
+          file => datasetIndex >= file.startIndex &&
+              datasetIndex < file.startIndex + file.count);
+
       signalManager.removeSignal(datasetIndex);
+
+      if (fileRecord) {
+        fileRecord.count--;
+        if (fileRecord.count === 0) {
+          removeFile(fileRecord);
+          return;
+        }
+      }
+      // Rebuild file start indices
+      let currentIndex = 0;
+      loadedFiles.forEach(file => {
+        file.startIndex = currentIndex;
+        currentIndex += file.count;
+      });
+      updateFileIndices();
+      rebuildSignalList();
       refreshUi();
     };
 
@@ -277,6 +276,7 @@ function addLoadedFile(file) {
   removeBtn.onclick = () => removeFile(fileRecord);
 
   updateFileIndices();
+  rebuildSignalList();
   refreshUi();
 }
 
@@ -299,6 +299,7 @@ function removeFile(fileRecord) {
   });
 
   updateFileIndices();
+  rebuildSignalList();
   refreshUi();
 }
 
@@ -320,6 +321,7 @@ function applyRegexRename(pattern) {
     }
   });
 
+  rebuildSignalList();
   refreshUi();
 }
 
@@ -329,6 +331,25 @@ window.addEventListener('DOMContentLoaded', async () => {
   const sidebar = document.getElementById('sidebar');
   const resizeHandle = document.getElementById('sidebarResizeHandle');
 
+  // Sortable list
+  const signalList = document.getElementById('signalList');
+  Sortable.create(signalList, {
+    animation: 150,
+    handle: '.signal-handle',
+    ghostClass: 'signal-drag-ghost',
+    chosenClass: 'signal-drag-chosen',
+    dragClass: 'signal-dragging',
+
+    onEnd: evt => {
+      if (evt.oldIndex === evt.newIndex) {
+        return;
+      }
+      signalManager.moveSignal(evt.oldIndex, evt.newIndex);
+      refreshUi();
+    }
+  });
+
+  // resizeable sidebar
   resizeHandle.addEventListener('mousedown', e => {
     resizingSidebar = true;
     document.body.classList.add('resizing');
