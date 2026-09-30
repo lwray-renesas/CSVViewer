@@ -39,7 +39,7 @@ export class ChartManager {
               mode : 'x',
               onPan : ({chart}) => { this.scheduleUpdate(); },
             },
-
+            limits : {x : {min : 0, max : 100}},
             zoom : {
               wheel : {
                 enabled : true,
@@ -173,6 +173,16 @@ export class ChartManager {
       this.chart.update('none');
       return;
     }
+
+    const maxLength = Math.max(
+        0, ...this.signalManager.signals.map(signal => signal.buffer.length));
+    if (maxLength === 0) {
+      this.chart.update('none');
+      return;
+    }
+    this.chart.options.plugins.zoom.limits = {
+      x : {min : 0, max : maxLength - 1}
+    };
 
     const {start, end} = this.getViewport();
     const targetPoints = this.chart.width;

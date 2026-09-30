@@ -95,6 +95,7 @@ function addLoadedFile(file) {
   refreshFileLabels();
   signalListView.rebuild();
   refreshUi();
+  chartManager.resetView();
 }
 
 function applyRegexRename(pattern) {
