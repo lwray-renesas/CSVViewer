@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self'; style-src 'self';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CSV Viewer</title>
   <link rel="stylesheet" href="styles.css" />
@@ -11,97 +11,160 @@
 
 <body>
 
-<div class="app layout">
+  <div class="app layout">
 
-  <!-- SIDEBAR -->
-  <div id="sidebar" class="sidebar">
+    <!-- SIDEBAR -->
+    <div id="sidebar" class="sidebar">
 
-    <div class="section-title">Files</div>
+      <div class="section-title">Files</div>
 
-    <div class="control-group">
-      <div class="inline-controls">
-        <button id="AddFile" class="btn secondary">+</button>
+      <div class="control-group">
+        <div class="inline-controls">
+          <button id="AddFile" class="btn secondary">+</button>
+        </div>
+        <div id="fileList"></div>
       </div>
-      <div id="fileList"></div>
-    </div>
 
-    <div class="section-divider"></div>
+      <div class="section-divider"></div>
 
-    <div class="section-title">Signals</div>
+      <div class="section-title">Signals</div>
 
-    <div class="control-group">
-      <input id="nameRegex" placeholder="Capture regex" />
-      <div class="inline-controls">
+      <div class="control-group">
+        <input id="nameRegex" placeholder="Capture regex" />
+        <div class="inline-controls">
           <button id="applyRegex" class="btn secondary"> Apply </button>
           <button id="resetNames" class="btn secondary"> Reset </button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div id="dataList"></div>
+      </div>
+      <div class="section-title">View</div>
+
+      <div id="yControls" class="axis-panel">
+
+        <div class="axis-header">
+          <span>Left Axis</span>
+
+          <div class="inline-controls">
+            <span>Auto</span>
+
+            <label class="toggle">
+              <input type="checkbox" id="yAuto" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="axis-range">
+
+          <div class="control-group">
+            <label>Min</label>
+            <input id="yMin" type="number" value="0" />
+          </div>
+
+          <div class="control-group">
+            <label>Max</label>
+            <input id="yMax" type="number" value="100" />
+          </div>
+
+        </div>
+
+      </div>
+
+      <div id="y1Controls" class="axis-panel hidden">
+
+        <div class="axis-header">
+          <span>Right Axis</span>
+
+          <div class="inline-controls">
+            <span>Auto</span>
+
+            <label class="toggle">
+              <input type="checkbox" id="y1Auto" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="axis-range">
+
+          <div class="control-group">
+            <label>Min</label>
+            <input id="y1Min" type="number" value="0" />
+          </div>
+
+          <div class="control-group">
+            <label>Max</label>
+            <input id="y1Max" type="number" value="100" />
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="section-divider"></div>
+
+      <div class="section-title">Controls</div>
+
+      <table class="controls-table">
+        <tr>
+          <td>Scroll</td>
+          <td>Zoom</td>
+        </tr>
+        <tr>
+          <td>Click + Drag</td>
+          <td>Pan</td>
+        </tr>
+        <tr>
+          <td>Ctrl + Click + Drag</td>
+          <td>Zoom Box</td>
+        </tr>
+        <tr>
+          <td>Double Click</td>
+          <td>Reset View</td>
+        </tr>
+      </table>
+
+      <div class="section-divider"></div>
+
+      <div class="app-version">
+        v1.3.0
+      </div>
+
+    </div>
+
+    <div id="sidebarResizeHandle"></div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <div class="card chart-card">
+        <div class="chart-wrapper">
+          <canvas id="chart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="loading-content">
+      <div class="spinner"></div>
+
+      <div id="loadingMessage" class="loading-message">
+        Loading...
       </div>
     </div>
-
-    <div class="control-group">
-      <div id="dataList"></div>
-    </div>
-
-    <div class="section-divider"></div>
-
-    <div class="section-title">Controls</div>
-
-    <table class="controls-table">
-      <tr>
-        <td>Scroll</td>
-        <td>Zoom</td>
-      </tr>
-      <tr>
-        <td>Click + Drag</td>
-        <td>Pan</td>
-      </tr>
-      <tr>
-        <td>Ctrl + Click + Drag</td>
-        <td>Zoom Box</td>
-      </tr>
-      <tr>
-        <td>Double Click</td>
-        <td>Reset View</td>
-      </tr>
-    </table>
-
-    <div class="section-divider"></div>
-
-    <div class="app-version">
-      v1.2.2
-    </div>
-
   </div>
 
-  <div id="sidebarResizeHandle"></div>
-
-  <!-- MAIN -->
-  <div class="main">
-
-    <div class="card chart-card">
-      <div class="chart-wrapper">
-        <canvas id="chart"></canvas>
-      </div>
-    </div>
-
-  </div>
-
-</div>
-
-<div id="loadingOverlay" class="loading-overlay hidden">
-  <div class="loading-content">
-    <div class="spinner"></div>
-
-    <div id="loadingMessage" class="loading-message">
-      Loading...
-    </div>
-  </div>
-</div>
-
-<script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
-<script src="../../node_modules/hammerjs/hammer.min.js"></script>
-<script src="../../node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
-<script src="../../node_modules/sortablejs/Sortable.min.js"></script>
-<script type="module" src="renderer.js"></script>
+  <script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
+  <script src="../../node_modules/hammerjs/hammer.min.js"></script>
+  <script src="../../node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
+  <script src="../../node_modules/sortablejs/Sortable.min.js"></script>
+  <script type="module" src="renderer.js"></script>
 
 </body>
 

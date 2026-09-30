@@ -13,11 +13,12 @@ function updateAxisButtonColour(button, dataset) {
 
 // class to manage a signal list view (interactive legend for chart)
 export class SignalListView {
-  constructor(root, signalManager, fileManager, chartManager) {
+  constructor(root, signalManager, fileManager, chartManager, refreshUi) {
     this.root = root;
     this.signalManager = signalManager;
     this.fileManager = fileManager;
     this.chartManager = chartManager;
+    this.refreshUi = refreshUi;
   }
 
   // constructs the signal list view (interactive legend) based on latest
@@ -55,6 +56,7 @@ export class SignalListView {
         ds.yAxisID = ds.yAxisID === 'y' ? 'y1' : 'y';
         this.rebuild();
         this.chartManager.synchronise();
+        this.refreshUi();
       };
 
       // Delete signal

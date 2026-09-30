@@ -11,9 +11,10 @@ let chartManager = null;
 let signalListView = null;
 let resizingSidebar = false;
 
-
 function refreshUi() {
   chartManager.synchronise();
+  updateAxisUi();
+  updateAxisControlsVisibility();
 }
 
 function refreshFileLabels() {
@@ -37,14 +38,13 @@ function setLoadingState(loading, text = '') {
     overlay.classList.add('hidden');
   }
 
-  document.querySelectorAll('button,input').forEach(el => {
-    el.disabled = loading;
-  });
+  document.querySelectorAll('button,input')
+      .forEach(el => { el.disabled = loading; });
 }
 
 // Helper function to generate a new colour
 function getColour(index) {
-  const goldenRatio = 137.508;  // spreads colours nicely
+  const goldenRatio = 137.508; // spreads colours nicely
   const hue = (index * goldenRatio) % 360;
 
   return `hsl(${hue}, 70%, 55%)`;
@@ -78,8 +78,8 @@ function addLoadedFile(file) {
       return Number.isNaN(n) ? null : n;
     });
 
-    signalManager.addSignal(
-        headers[i], numericBuffer, getColour(signalManager.count));
+    signalManager.addSignal(headers[i], numericBuffer,
+                            getColour(signalManager.count));
   });
 
   const fileRecord = fileManager.addFile(file.path, buffers.length);
@@ -119,6 +119,37 @@ function applyRegexRename(pattern) {
   refreshUi();
 }
 
+// Helper to update axis options
+function updateAxisControlsVisibility() {
+  document.getElementById('yControls')
+      .classList.toggle(
+          'hidden',
+          !chartManager.isYAxisUsed(),
+      );
+
+  document.getElementById('y1Controls')
+      .classList.toggle(
+          'hidden',
+          !chartManager.isY1AxisUsed(),
+      );
+}
+
+function updateAxisUi() {
+  const yAuto = document.getElementById('yAuto').checked;
+  document.getElementById('yMin').disabled = yAuto;
+  document.getElementById('yMax').disabled = yAuto;
+
+  document.querySelector('#yControls .axis-range')
+      .classList.toggle('disabled', yAuto);
+
+  const y1Auto = document.getElementById('y1Auto').checked;
+  document.getElementById('y1Min').disabled = y1Auto;
+  document.getElementById('y1Max').disabled = y1Auto;
+
+  document.querySelector('#y1Controls .axis-range')
+      .classList.toggle('disabled', y1Auto);
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   chartManager =
       new ChartManager(document.getElementById('chart'), signalManager);
@@ -127,18 +158,18 @@ window.addEventListener('DOMContentLoaded', async () => {
   const resizeHandle = document.getElementById('sidebarResizeHandle');
   const dataList = document.getElementById('dataList');
 
-  signalListView =
-      new SignalListView(dataList, signalManager, fileManager, chartManager);
+  signalListView = new SignalListView(dataList, signalManager, fileManager,
+                                      chartManager, refreshUi);
 
   // Sortable list
   Sortable.create(dataList, {
-    animation: 150,
-    handle: '.signal-handle',
-    ghostClass: 'signal-drag-ghost',
-    chosenClass: 'signal-drag-chosen',
-    dragClass: 'signal-dragging',
+    animation : 150,
+    handle : '.signal-handle',
+    ghostClass : 'signal-drag-ghost',
+    chosenClass : 'signal-drag-chosen',
+    dragClass : 'signal-dragging',
 
-    onEnd: evt => {
+    onEnd : evt => {
       if (evt.oldIndex === evt.newIndex) {
         return;
       }
@@ -146,6 +177,35 @@ window.addEventListener('DOMContentLoaded', async () => {
       refreshUi();
     }
   });
+
+  document.getElementById('yAuto').addEventListener('change', (e) => {
+    chartManager.yAuto = e.target.checked;
+    updateAxisUi();
+    chartManager.synchronise();
+  });
+  document.getElementById('yMin').onchange = (e) => {
+    chartManager.yMin = Number(e.target.value);
+    chartManager.synchronise();
+  };
+  document.getElementById('yMax').onchange = (e) => {
+    chartManager.yMax = Number(e.target.value);
+    chartManager.synchronise();
+  };
+
+  // axis scaling
+  document.getElementById('y1Auto').addEventListener('change', (e) => {
+    chartManager.y1Auto = e.target.checked;
+    updateAxisUi();
+    chartManager.synchronise();
+  });
+  document.getElementById('y1Min').onchange = (e) => {
+    chartManager.y1Min = Number(e.target.value);
+    chartManager.synchronise();
+  };
+  document.getElementById('y1Max').onchange = (e) => {
+    chartManager.y1Max = Number(e.target.value);
+    chartManager.synchronise();
+  };
 
   // resizeable sidebar
   resizeHandle.addEventListener('mousedown', e => {
@@ -214,12 +274,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   };
 
   document.getElementById('resetNames').onclick = () => {
-    signalManager.datasets.forEach(ds => {
-      ds.label = ds.rawHeader;
-    });
+    signalManager.datasets.forEach(ds => { ds.label = ds.rawHeader; });
     signalListView.rebuild();
     refreshUi();
   };
+
+  updateAxisUi();
 });
 
 window.onload = () => {

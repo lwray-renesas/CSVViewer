@@ -2,93 +2,125 @@ export class ChartManager {
   constructor(canvas, signalManager) {
     this.signalManager = signalManager;
     this.updatePending = false;
+    this.yAuto = true;
+    this.yMin = 0;
+    this.yMax = 100;
+    this.y1Auto = true;
+    this.y1Min = 0;
+    this.y1Max = 100;
     this.chart = new Chart(canvas.getContext('2d'), {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets:
+      type : 'line',
+      data : {
+        labels : [],
+        datasets :
             this.signalManager
-                .datasets,  // Important - now anything we do to signal manager
-                            // datasetswill be reflected in charts datasets
+                .datasets, // Important - now anything we do to signal manager
+                           // datasetswill be reflected in charts datasets
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        parsing: false,
+      options : {
+        responsive : true,
+        maintainAspectRatio : false,
+        animation : false,
+        parsing : false,
 
-        interaction: {
-          intersect: false,
-          mode: 'nearest',
+        interaction : {
+          intersect : false,
+          mode : 'nearest',
         },
 
-        plugins: {
-          legend: {
-            display: false,
+        plugins : {
+          legend : {
+            display : false,
           },
 
-          zoom: {
-            pan: {
-              enabled: true,
-              mode: 'xy',
-              onPan: ({chart}) => {
-                this.scheduleUpdate();
-              },
+          zoom : {
+            pan : {
+              enabled : true,
+              mode : 'x',
+              onPan : ({chart}) => { this.scheduleUpdate(); },
             },
 
-            zoom: {
-              wheel: {enabled: true},
-
-              pinch: {enabled: true},
-
-              drag: {
-                enabled: true,
-                modifierKey: 'ctrl',
-                backgroundColor: 'rgba(59,130,246,0.2)',
-                borderColor: '#3b82f6',
-                borderWidth: 1,
+            zoom : {
+              wheel : {
+                enabled : true,
               },
 
-              mode: 'xy',
+              pinch : {enabled : true},
 
-              onZoom: ({chart}) => {
-                this.scheduleUpdate();
-              }
+              drag : {
+                enabled : true,
+                modifierKey : 'ctrl',
+                backgroundColor : 'rgba(59,130,246,0.2)',
+                borderColor : '#3b82f6',
+                borderWidth : 1,
+              },
+
+              mode : 'x',
+
+              onZoom : ({chart}) => { this.scheduleUpdate(); }
             }
           }
         },
 
-        scales: {
-          x: {
-            grid: {color: 'rgba(255,255,255,0.05)'},
-            ticks: {color: '#94a3b8'},
-            type: 'linear',
-            bounds: 'data',
+        scales : {
+          x : {
+            grid : {color : 'rgba(255,255,255,0.05)'},
+            ticks : {color : '#94a3b8'},
+            type : 'linear',
+            bounds : 'data',
           },
 
-          y: {
-            display: false,
-            grid: {color: 'rgba(255,255,255,0.05)'},
-            ticks: {color: '#94a3b8'},
-            bounds: 'data',
+          y : {
+            display : false,
+            grid : {color : 'rgba(255,255,255,0.05)'},
+            ticks : {color : '#94a3b8'},
+            bounds : 'data',
           },
 
-          y1: {
-            display: false,
-            position: 'right',
-            grid: {drawOnChartArea: false},
-            ticks: {color: '#f59e0b'},
-            bounds: 'data'
+          y1 : {
+            display : false,
+            position : 'right',
+            grid : {drawOnChartArea : false},
+            ticks : {color : '#f59e0b'},
+            bounds : 'data'
           }
         }
       }
     });
   }
 
-  // Gets chart canvas context for application to use for interaction handlers.
-  getCanvas() {
-    return this.chart.canvas;
+  isYAxisUsed() {
+    return this.signalManager.datasets.some(ds => ds.yAxisID === 'y');
   }
+
+  isY1AxisUsed() {
+    return this.signalManager.datasets.some(ds => ds.yAxisID === 'y1');
+  }
+
+  // Updates y axis scaling parameters.
+  updateAxisScaling() {
+    const y = this.chart.options.scales.y;
+    const y1 = this.chart.options.scales.y1;
+
+    if (this.yAuto) {
+      delete y.min;
+      delete y.max;
+    } else {
+      y.min = Math.min(this.yMin, this.yMax);
+      y.max = Math.max(this.yMin, this.yMax);
+    }
+
+    if (this.y1Auto) {
+      delete y1.min;
+      delete y1.max;
+    } else {
+      y1.min = Math.min(this.y1Min, this.y1Max);
+      y1.max = Math.max(this.y1Min, this.y1Max);
+    }
+  }
+
+  // Gets chart canvas context for application to use for interaction handlers.
+  getCanvas() { return this.chart.canvas; }
 
   // resynchronises the data between SignalManager and ChartManager
   // Effectively force refreshing the displayed data.
@@ -99,6 +131,9 @@ export class ChartManager {
     // Only display the y axis if a set is using it.
     this.chart.options.scales.y.display =
         this.signalManager.datasets.some(ds => ds.yAxisID === 'y');
+
+    // Fix y axis scales
+    this.updateAxisScaling();
 
     // Fully rebuild the data from the buffers
     this.rebuildBuffers();
@@ -122,12 +157,12 @@ export class ChartManager {
 
     if (scaleIsValid) {
       return {
-        start: Math.max(0, Math.floor(scale.min)),
-        end: Math.ceil(scale.max)
+        start : Math.max(0, Math.floor(scale.min)),
+        end : Math.ceil(scale.max)
       };
     }
 
-    return {start: 0, end: firstBuffer.length};
+    return {start : 0, end : firstBuffer.length};
   }
 
   // Updates the visibile data i.e., performs decimation on the sets.
@@ -143,8 +178,8 @@ export class ChartManager {
     const targetPoints = this.chart.width;
 
     this.signalManager.datasets.forEach((dataset, index) => {
-      dataset.data = this.decimateMinMax(
-          this.signalManager.getBuffer(index), start, end, targetPoints);
+      dataset.data = this.decimateMinMax(this.signalManager.getBuffer(index),
+                                         start, end, targetPoints);
     });
 
     // Assign chart datasets and update!
@@ -178,16 +213,14 @@ export class ChartManager {
     this.chart.update();
   }
 
-  isDatasetVisible(index) {
-    return this.chart.isDatasetVisible(index);
-  }
+  isDatasetVisible(index) { return this.chart.isDatasetVisible(index); }
 
   decimateMinMax(buffer, start, end, targetPoints) {
     const range = end - start;
     if (range <= targetPoints) {
       const data = [];
       for (let x = start; x < end; x++) {
-        data.push({x, y: buffer[x]});
+        data.push({x, y : buffer[x]});
       }
       return data;
     }
@@ -222,11 +255,11 @@ export class ChartManager {
 
       if (minY !== Infinity) {
         if (minX < maxX) {
-          data.push({x: minX, y: minY});
-          data.push({x: maxX, y: maxY});
+          data.push({x : minX, y : minY});
+          data.push({x : maxX, y : maxY});
         } else {
-          data.push({x: maxX, y: maxY});
-          data.push({x: minX, y: minY});
+          data.push({x : maxX, y : maxY});
+          data.push({x : minX, y : minY});
         }
       }
     }
